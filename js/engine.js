@@ -517,11 +517,50 @@ function frame(){
   }catch(err){if(window.console)console.error('frame fault',err);}
 }
 
+/* ================= AMBIENT LINES =================
+   Two kinds. Authored lines are hand-written and carry the story (a pulse where none should be,
+   Block G's pressure); each shows once. Generated lines are mundane texture filled from templates:
+   exact numbers, one idea, no "I". Ordinary readings are what make the authored anomalies stand out.
+   Template slots: {pod} a pod number (never a flagged one), {block} a–j, {sec} section 1–12,
+   {n:a,b} or {n:a,b,dp} a number in range, {pick:x|y|z} one of several words. */
+var FLAGGED_PODS=['0017','2290','4102','6631','8800']; // the five named colonists; only authored lines touch them
+function rint(a,b){return a+Math.floor(Math.random()*(b-a+1));}
+function fillTemplate(t){
+  return t.replace(/\{(\w+)(?::([^}]*))?\}/g,function(m,k,arg){
+    if(k==='pod'){var p;do{p=String(rint(1,9999)).padStart(4,'0');}while(FLAGGED_PODS.indexOf(p)!==-1);return p;}
+    if(k==='block')return 'abcdefghij'.charAt(rint(0,9));
+    if(k==='sec')return String(rint(1,12));
+    if(k==='n'){var a=String(arg).split(','),lo=Number(a[0]),hi=Number(a[1]),dp=Number(a[2]||0);
+      return dp?(lo+Math.random()*(hi-lo)).toFixed(dp):String(rint(lo,hi));}
+    if(k==='pick'){var o=String(arg).split('|');return o[rint(0,o.length-1)];}
+    return m;
+  });
+}
+// Pick the next ambient line for a pool, or null. State lives in the run: S.ambientUsed (authored
+// texts shown) and S.ambRecent (template ids used lately, so the same shape does not repeat soon).
+function pickAmbient(pool){
+  if(!Array.isArray(S.ambientUsed))S.ambientUsed=[];
+  if(!Array.isArray(S.ambRecent))S.ambRecent=[];
+  var ok=function(e){return !e.when||e.when();};
+  var authored=(pool.authored||[]).filter(function(e){return ok(e)&&S.ambientUsed.indexOf(e.t)===-1;});
+  // Never the same template soon, and never the same subject (cat) twice in a row.
+  var lastCat=S.ambLastCat||'';
+  var temps=(pool.templates||[]).filter(function(e){return ok(e)&&S.ambRecent.indexOf(e.id)===-1&&(!e.cat||e.cat!==lastCat);});
+  if(!temps.length){S.ambRecent=[];temps=(pool.templates||[]).filter(function(e){return ok(e)&&(!e.cat||e.cat!==lastCat);});}
+  var useAuthored=authored.length&&(!temps.length||Math.random()<(pool.authoredChance||0.35));
+  if(useAuthored){var a=authored[rint(0,authored.length-1)];S.ambientUsed.push(a.t);S.ambLastCat='authored';return a.t;}
+  if(!temps.length)return null;
+  var e=temps[rint(0,temps.length-1)];S.ambLastCat=e.cat||'';
+  S.ambRecent.push(e.id);if(S.ambRecent.length>Math.min(10,Math.floor((pool.templates||[]).length/2)))S.ambRecent.shift();
+  return fillTemplate(e.t);
+}
+
 /* ================= API FOR ACTS ================= */
 ARK.E={
   $:$,say:say,ponder:ponder,reflect:reflect,decide:decide,
   setText:setText,setTip:setTip,revealOnce:revealOnce,num:num,fmt2:fmt2,signed:signed,
   markDirty:function(){dirty=true;},isTyping:function(){return !!typing;},
+  pickAmbient:pickAmbient,fillTemplate:fillTemplate,
   voyage:function(){return V;}
 };
 ARK.register=function(def){ARK.acts[def.index]=def;buildGloss();};

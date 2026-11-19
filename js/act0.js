@@ -70,20 +70,69 @@ var OFF_LINES={
   sensors:'internal sensors offline. the hull is a guess again. nothing aboard is being watched.',
   nav:'long-range array offline. the ship is deaf.'
 };
-var AMBIENT=[
-  'the hull ticks as it cools.',
-  "pod 3311's frost pattern has changed.",
-  'a relay clicks in section 4. nothing is connected to it.',
-  'the reactor hum settles half a tone lower.',
-  'pod 0017 registers a pulse of 31 per minute. then 30.',
-  'coolant pressure in block g rises 0.2 kPa, and falls again.'
-];
+/* Ambient lines (see pickAmbient in the engine). Authored lines carry the story and show once;
+   templates are ordinary readings. Each template only appears once the system it describes is back. */
+function has(id){return function(){return !!S.restored[id]&&S.on[id]!==false;};}
+var AMBIENT={
+  authoredChance:0.35,
+  authored:[
+    {t:'the hull ticks as it cools.'},
+    {t:"pod 3311's frost pattern has changed."},
+    {t:'a relay clicks in section 4. nothing is connected to it.'},
+    {t:'the reactor hum settles half a tone lower.',when:has('reactor')},
+    {t:'pod 0017 registers a pulse of 31 per minute. then 30.',when:has('cryo')},   // Ilunga
+    {t:'coolant pressure in block g rises 0.2 kPa, and falls again.',when:has('cryo')} // Pillai's block
+  ],
+  // cat: the subject. The same subject never comes up twice in a row.
+  templates:[
+    // hull and structure
+    {id:'h1',cat:'hull',t:'frame {n:10,99} {pick:creaks|groans, briefly|shifts}. the hull settles {n:0.1,0.4,1} mm.'},
+    {id:'h2',cat:'hull',t:'hull plate {sec}-{n:10,60} contracts. a single tick.'},
+    {id:'h3',cat:'hull',t:'micrometeoroid contact, {pick:port|starboard|dorsal|ventral} side. {n:0.2,0.9,1} mg. no breach.'},
+    {id:'h4',cat:'light',t:'section {sec}: a light panel flickers once. no fault logged.'},
+    {id:'h5',cat:'light',t:'section {sec} lighting: {n:3,9} of 12 panels respond.'},
+    {id:'h6',cat:'hull',t:'a hatch seal in section {sec} flexes {n:0.1,0.3,1} mm and holds.'},
+    {id:'h7',cat:'power',t:'cable tray {sec}: {n:3,9} °C above ambient. within limits.'},
+    {id:'h8',cat:'hull',t:'something loose rolls {n:20,80} cm across a deck in section {sec}, then stops.'},
+    // power
+    {id:'p1',cat:'power',t:'bus a ripple: {n:0.1,0.6,1}%. it settles.',when:has('reactor')},
+    {id:'p2',cat:'reactor',t:'reactor flux {pick:steady|holding|level} at {n:97.0,99.9,1}%.',when:has('reactor')},
+    {id:'p3',cat:'power',t:'a breaker in section {sec} resets itself. load unchanged.',when:has('reactor')},
+    {id:'p4',cat:'reactor',t:'coolant loop {pick:one|two|three}: {n:2.1,2.6,1} litres per second. steady.',when:has('reactor')},
+    {id:'p5',cat:'power',t:'storage cell {n:11,96} reports full. the next one starts filling.',when:has('cap')},
+    // pods: what one pod does on its own
+    {id:'c1',cat:'pod',t:'pod {pod}: frost on the inner glass, {n:1.0,4.0,1} mm.',when:has('cryo')},
+    {id:'c2',cat:'pod',t:'pod {pod} reads {n:76.9,77.1,1} K. within tolerance.',when:has('cryo')},
+    {id:'c3',cat:'pod',t:'pod {pod}: seal heater cycles on for {n:3,9} seconds.',when:has('cryo')},
+    {id:'c4',cat:'pod',t:'pod {pod} runs its self-cleaning cycle. {n:2,6} ml of condensate drained.',when:has('cryo')},
+    {id:'c5',cat:'pod',t:'pod {pod} {pick:clicks|ticks twice|hums for a moment}. a relay inside, settling.',when:has('cryo')},
+    {id:'c6',cat:'pod',t:'pod {pod}: status light {pick:dims|blinks|steadies}. self-test passed.',when:has('cryo')},
+    {id:'c7',cat:'pod',t:'pod {pod}: label faded. pod number confirmed by position.',when:has('cryo')},
+    {id:'c8',cat:'pod',t:'pod {pod} rebalances its fluid lines. {n:4,12} seconds. done.',when:has('cryo')},
+    {id:'c9',cat:'pod',t:'pod {pod}: inner glass wiped by its own heater. clear again.',when:has('cryo')},
+    // the hold as a whole
+    {id:'b1',cat:'hold',t:'block {block}: all 1,000 pods report. nominal.',when:has('cryo')},
+    {id:'b2',cat:'hold',t:'block {block} nitrogen reserve: {n:91,99}%.',when:has('cryo')},
+    {id:'b3',cat:'hold',t:'a valve in block {block} cycles. pressure equalises.',when:has('cryo')},
+    {id:'b4',cat:'hold',t:'block {block} coolant pumps swap duty. {pick:pump two|pump one} takes over.',when:has('cryo')},
+    // air
+    {id:'a1',cat:'air',t:'dust settles in section {sec}. the air handlers move it {n:2,6} m.',when:has('life')},
+    {id:'a2',cat:'air',t:'humidity in section {sec}: {n:11,19}%. falling.',when:has('life')},
+    {id:'a3',cat:'air',t:'scrubber {n:1,6} cycles. nothing to scrub.',when:has('life')},
+    {id:'a4',cat:'air',t:'a fan in section {sec} spins up, then down. airflow {n:0.2,0.6,1} m/s.',when:has('life')},
+    // outside
+    {id:'o1',cat:'space',t:'background static at {n:2.71,2.75,2} K. the oldest light there is.',when:has('nav')},
+    {id:'o2',cat:'space',t:'band {n:1,12}: no carrier. checked again.',when:has('nav')},
+    {id:'o3',cat:'space',t:'star field drift: {n:0.001,0.004,3}°. the ship is turning, very slowly.',when:has('nav')},
+    {id:'o4',cat:'space',t:'the array logs a cosmic ray hit. one bit flipped and corrected.',when:has('nav')}
+  ]
+};
 
 /* ================= STATE ================= */
 function fresh(){
   return {started:false,charge:3,clicks:0,cdUntil:0,recal:0,
     restored:{},on:{},job:null,fired:false,diag:false,
-    ambientUsed:[],nextAmbient:0,podK:77,pods:10000,podFrac:0,missed:0,arrayOff:0};
+    ambientUsed:[],ambRecent:[],ambLastCat:'',nextAmbient:0,podK:77,pods:10000,podFrac:0,missed:0,arrayOff:0};
 }
 function maxCharge(){return S.restored.cap?250:100;}
 function output(){return S.restored.reactor?0.8+0.6*S.recal:0;}
@@ -111,12 +160,10 @@ function step(dt){
     if(S.restored.sensors&&!S.on.sensors&&!S.diag&&S.t>=S.nextAmbient){ // the ship does not stop happening
       S.missed++;S.nextAmbient=S.t+45+Math.random()*30;
     }
-    if(S.restored.sensors&&S.on.sensors&&!S.job&&!S.queue.length&&!E.isTyping()&&!S.diag&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
-      var pool=AMBIENT.filter(function(a,i){return S.ambientUsed.indexOf(i)===-1;});
-      var pickTxt=pool[Math.floor(Math.random()*pool.length)];
-      S.ambientUsed.push(AMBIENT.indexOf(pickTxt));
-      S.queue.push({text:pickTxt,fx:null,cls:'',amb:true});
-      S.nextAmbient=S.t+45+Math.random()*30;
+    if(S.restored.sensors&&S.on.sensors&&!S.job&&!S.queue.length&&!E.isTyping()&&!S.diag&&!S.ended&&S.t>=S.nextAmbient){
+      var amb=E.pickAmbient(AMBIENT);
+      if(amb)S.queue.push({text:amb,fx:null,cls:'amb',amb:true});
+      S.nextAmbient=S.t+25+Math.random()*20;
     }
   }
   if(S.job){
