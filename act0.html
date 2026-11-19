@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARK-09 // Act 0</title>
+<style>
+:root{
+  --bg:#07090c;--text:#c8d1dc;--bright:#e6edf5;--dim:#5b6676;--faint:#232c38;--line:#1a222d;
+  --accent:#7dd3fc;--cold:#93c5fd;--warm:#fbbf24;--broken:#f43f5e;--darkpart:#3a4554;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;font-size:14px;line-height:1.55}
+body{min-height:100vh}
+.hidden{display:none!important}
+.appear{animation:appear 1.6s ease both}
+@keyframes appear{from{opacity:0}to{opacity:1}}
+
+.wrap{max-width:1060px;margin:0 auto;padding:48px 16px 80px;display:grid;grid-template-columns:minmax(0,1fr) 520px;gap:48px;align-items:start}
+@media (max-width:920px){.wrap{grid-template-columns:1fr;gap:28px;padding-top:24px}.side{order:-1}}
+
+.clock{color:var(--dim);font-size:12px;letter-spacing:2px;margin-bottom:18px}
+
+/* actions */
+#actions{margin-bottom:26px}
+.act{position:relative;display:flex;justify-content:space-between;gap:12px;width:100%;text-align:left;background:transparent;border:1px solid var(--line);color:var(--text);padding:9px 12px;margin:0 0 8px;font:inherit;cursor:pointer;overflow:hidden;transition:border-color .2s,color .2s}
+.act:hover:not(:disabled){border-color:var(--dim);color:var(--bright)}
+.act:disabled{color:var(--dim);cursor:default}
+.act .cost{color:var(--dim);white-space:nowrap}
+.act .bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--accent)}
+.act:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+
+/* log */
+#log .line{margin:0 0 10px;transition:opacity 1.5s}
+#log .line.self{color:var(--bright)}
+#log .line.warn{color:#f5c26b}
+
+/* systems */
+#systems{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+.sub{color:var(--dim);font-size:11px;letter-spacing:2px;margin-bottom:8px}
+.sysRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0;color:var(--text)}
+.sysRow .draw{color:var(--dim);margin-left:auto;margin-right:10px}
+.tog{background:transparent;border:1px solid var(--line);color:var(--accent);font:inherit;font-size:12px;padding:2px 10px;cursor:pointer;min-width:52px}
+.tog.off{color:var(--dim)}
+.tog:hover{border-color:var(--dim)}
+
+/* ship */
+.ship{container-type:inline-size;margin-bottom:22px}
+.ship pre{margin:0;font-family:inherit;font-size:calc(100cqi / 40);line-height:1.18;white-space:pre;user-select:none}
+.ship pre span[title]{cursor:help}
+.st-hidden{color:transparent}
+.st-unknown{color:var(--faint)}
+.st-dark{color:var(--darkpart)}
+.st-lit{color:var(--accent)}
+.st-cold{color:var(--cold)}
+.st-broken{color:var(--broken)}
+.st-warm{color:var(--warm);animation:flick .18s steps(2) infinite}
+@keyframes flick{50%{opacity:.35}}
+
+/* readouts */
+.ro{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13px}
+.ro span{color:var(--dim)}
+.ro b{font-weight:400;color:var(--text);text-align:right}
+.meter{height:3px;background:var(--line);margin:2px 0 8px}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s linear}
+
+/* end card */
+.card{position:fixed;inset:0;background:rgba(7,9,12,.94);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.cardIn{text-align:center;max-width:420px;width:100%}
+.cardT{font-size:28px;letter-spacing:10px;color:var(--bright);margin-bottom:10px}
+.cardS{color:var(--dim);margin-bottom:28px}
+.cardIn .act{justify-content:center}
+
+footer{position:fixed;right:16px;bottom:12px}
+.link{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;padding:4px}
+.link:hover{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+    <div class="clock hidden" id="clock">BOOT +00:00:00</div>
+    <div id="actions" class="hidden"></div>
+    <div id="log" aria-live="polite"></div>
+    <div id="systems" class="hidden">
+      <div class="sub">SYSTEMS</div>
+      <div id="sysList"></div>
+    </div>
+  </main>
+  <aside class="side">
+    <div id="shipBox" class="ship hidden"><pre id="ship" aria-label="Ship schematic"></pre></div>
+    <div id="readouts" class="hidden">
+      <div class="ro"><span>charge</span><b id="roCharge">0</b></div>
+      <div class="meter"><i id="roBar"></i></div>
+      <div class="ro hidden" id="rowFlow"><span>output · draw</span><b id="roFlow">—</b></div>
+      <div class="ro hidden" id="rowHold"><span>hold</span><b id="roHold">—</b></div>
+      <div class="ro hidden" id="rowAir"><span>air</span><b id="roAir">—</b></div>
+    </div>
+  </aside>
+</div>
+
+<div id="card" class="card hidden">
+  <div class="cardIn">
+    <div class="cardT">I · DRIFT</div>
+    <div class="cardS">end of the act 0 slice</div>
+    <button class="act" data-act="restart">begin again</button>
+  </div>
+</div>
+
+<footer><button class="link" id="btnRestart" data-act="restartAsk">restart</button></footer>
+
+<script>
+'use strict';
+(function(){
+
+var $=function(id){return document.getElementById(id);};
+var SAVE_KEY='ark09_act0_v1';
+var params=new URLSearchParams(location.search);
+var SPEED=Math.max(1,Math.min(100,Number(params.get('speed'))||1)); // playtest only: ?speed=10
+if(params.has('reset')){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+
+/* ================= SYSTEMS ================= */
+var SYS={
+  reactor:{name:'reactor',label:'restart reactor',cost:8,time:3,draw:0,after:null},
+  cryo:{name:'cryo monitor',label:'restore cryo monitor',cost:18,time:4,draw:0.2,after:'reactor'},
+  life:{name:'life support',label:'restore life support',cost:28,time:5,draw:0.3,after:'cryo'},
+  sensors:{name:'internal sensors',label:'restore internal sensors',cost:40,time:5,draw:0.2,after:'life'},
+  cap:{name:'capacitor bank',label:'repair capacitor bank',cost:55,time:6,draw:0,after:'sensors'},
+  nav:{name:'long-range array',label:'restore long-range array',cost:110,time:6,draw:0.4,after:'cap'},
+  engines:{name:'main engines',label:'restore main engines',cost:130,time:8,draw:0,after:'nav'}
+};
+var ORDER=['reactor','cryo','life','sensors','cap','nav','engines'];
+var TOGGLE=['cryo','life','sensors','nav'];
+var FIRE_COST=60,FIRE_TIME=4,DIAG_TIME=8,PULSE_CD=1.5;
+
+var OFF_LINES={
+  cryo:'cryo monitor offline. 10,000 heartbeats, unobserved.',
+  life:'life support offline. the air will thin. no one is breathing it.',
+  sensors:'internal sensors offline. the hull is a guess again.',
+  nav:'long-range array offline.'
+};
+var AMBIENT=[
+  'the hull ticks as it cools.',
+  "pod 3311's frost pattern has changed.",
+  'a relay clicks in section 4. nothing is connected to it.',
+  'the reactor hum settles half a tone lower.',
+  'pod 0017 registers a pulse of 31 per minute. then 30.',
+  'coolant pressure in block g rises 0.2 kPa, and falls again.'
+];
+
+/* ================= STATE ================= */
+var S=null;
+function fresh(){
+  return {v:1,t:0,bootDone:false,started:false,charge:3,clicks:0,cdUntil:0,recal:0,
+    restored:{},on:{},job:null,fired:false,diag:false,ended:false,
+    lines:[],queue:[],flags:{},ambientUsed:[],nextAmbient:0,last:Date.now()};
+}
+function maxCharge(){return S.restored.cap?250:100;}
+function output(){return S.restored.reactor?0.8+0.6*S.recal:0;}
+function draw(){var d=0;TOGGLE.forEach(function(id){if(S.restored[id]&&S.on[id])d+=SYS[id].draw;});return d;}
+function clickGain(){return 1+0.5*S.recal;}
+function recalCost(){return Math.floor(20*Math.pow(1.6,S.recal));}
+function num(v){return (typeof v==='number'&&isFinite(v))?v:0;}
+function fmt2(v){return num(v).toFixed(2);}
+function signed(v){v=num(v);return (v>=0?'+':'−')+Math.abs(v).toFixed(2);}
+
+/* ================= NARRATION ================= */
+var dirty=true;
+function say(text,fx,cls){S.queue.push({text:text,fx:fx||null,cls:cls||''});}
+function runFx(fx){
+  if(!fx)return;
+  if(fx==='bootDone')S.bootDone=true;
+  else if(fx==='reactorHint')S.flags.reactorHint=true;
+  else if(fx==='end'){S.ended=true;setTimeout(function(){$('card').classList.remove('hidden');},1600/SPEED);}
+  dirty=true;
+}
+
+/* ================= SIMULATION ================= */
+function step(dt){
+  S.t+=dt;
+  if(S.started){
+    var net=output()-draw();
+    S.charge=Math.min(maxCharge(),Math.max(0,S.charge+net*dt));
+    if(S.charge<=0&&net<0)brownout();
+    if(!S.flags.reactorHintQ&&!S.restored.reactor&&S.charge>=6){S.flags.reactorHintQ=true;say('reactor cold. restart possible.','reactorHint');}
+    if(S.restored.cryo&&!S.flags.eeg&&S.t>=num(S.flags.eegAt)){
+      S.flags.eeg=true;
+      say('pod eeg channels read 0.3 hz at 77 K. at this temperature they should read zero. flagged.');
+    }
+    if(S.restored.life&&!S.flags.budget&&net<=0.001){
+      S.flags.budget=true;
+      say('draw equals output. nothing left to store.');
+      say('recalibration advised.');
+    }
+    if(S.restored.sensors&&!S.job&&!S.queue.length&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
+      var pool=AMBIENT.filter(function(a,i){return S.ambientUsed.indexOf(i)===-1;});
+      var pickTxt=pool[Math.floor(Math.random()*pool.length)];
+      S.ambientUsed.push(AMBIENT.indexOf(pickTxt));
+      say(pickTxt);
+      S.nextAmbient=S.t+45+Math.random()*30;
+    }
+  }
+  if(S.job){
+    S.job.left-=dt;
+    if(S.job.left<=0)finishJob();
+  }
+}
+function brownout(){
+  for(var i=TOGGLE.length-1;i>=0;i--){
+    var id=TOGGLE[i];
+    if(S.restored[id]&&S.on[id]){
+      S.on[id]=false;
+      say('brownout. '+SYS[id].name+' shed to protect the core.',null,'warn');
+      dirty=true;
+      return;
+    }
+  }
+}
+function startJob(kind,id,cost,time){
+  if(S.job||S.ended||S.charge<cost)return;
+  S.charge-=cost;
+  S.job={kind:kind,id:id||null,left:time,total:time};
+  dirty=true;
+}
+function finishJob(){
+  var j=S.job;S.job=null;dirty=true;
+  if(j.kind==='sys'){
+    var id=j.id;
+    S.restored[id]=true;
+    if(TOGGLE.indexOf(id)!==-1)S.on[id]=true;
+    if(id==='reactor'){say('reactor: ignition.');say('output '+fmt2(output())+' units/s. stable.');say('bus b: discontinuity. current routed around it.');}
+    else if(id==='cryo'){say('cryo monitor online.');say('10,000 pods. 77 K. nominal.');S.flags.eegAt=S.t+25;}
+    else if(id==='life'){say('life support online.');say('atmosphere: breathable, thin.');say('no one is breathing it.');}
+    else if(id==='sensors'){
+      say('internal sensors online. hull mapped.');
+      say('bus b scar: 40 cm. edges fused.');
+      say('pattern consistent with a deliberate cut.',null,'warn');
+      say('capacitor bank: damaged. storage limited to 100 units.');
+      S.nextAmbient=S.t+30;
+    }
+    else if(id==='cap'){say('capacitor bank restored. storage 250 units.');}
+    else if(id==='nav'){say('long-range array online.');say('antenna: no response.');say('mast severed 2.1 m above the hull.');say('cut edge is clean. no debris within 40 km.',null,'warn');}
+    else if(id==='engines'){say('main engines restored.');say('test fire required before departure.');}
+  }else if(j.kind==='recal'){
+    S.recal++;
+    say('reactor recalibrated. output '+fmt2(output())+' units/s.');
+  }else if(j.kind==='fire'){
+    S.fired=true;
+    say('test fire.');say('thrust 0.8 kN. vibration within tolerance.');say('heading set: the horizon signal.');say('pre-departure diagnostics required.');
+  }else if(j.kind==='diag'){
+    S.diag=true;
+    say('diagnostics complete. 0 faults outstanding.');
+    say('log integrity check.');
+    say('first entry timestamp: 3,114 days before this boot.',null,'warn');
+    say('I have been here before.',null,'self');
+    say('The log says so.',null,'self');
+    say('I do not.','end','self');
+  }
+}
+
+/* ================= ACTIONS ================= */
+function nextSys(){
+  for(var i=0;i<ORDER.length;i++){
+    var id=ORDER[i];
+    if(S.restored[id])continue;
+    if(id==='reactor')return S.flags.reactorHint?id:null;
+    return S.restored[SYS[id].after]?id:null;
+  }
+  return null;
+}
+function pulse(){
+  if(!S.bootDone||S.ended||S.t<S.cdUntil)return;
+  S.cdUntil=S.t+PULSE_CD;
+  S.charge=Math.min(maxCharge(),S.charge+clickGain());
+  S.clicks++;
+  if(!S.started){
+    S.started=true;
+    say('charge accepted. bus a responding.');
+    say('hull geometry inferred from current draw.');
+    dirty=true;
+  }
+}
+function toggle(id){
+  if(!S.restored[id]||TOGGLE.indexOf(id)===-1)return;
+  S.on[id]=!S.on[id];
+  say(S.on[id]?SYS[id].name+' online.':OFF_LINES[id]);
+  dirty=true;
+}
+
+/* ================= SHIP OUTLINE ================= */
+var W=66,H=13,GRID=[];
+(function buildShip(){
+  for(var y=0;y<H;y++){var row=[];for(var x=0;x<W;x++)row.push({ch:' ',sec:null});GRID.push(row);}
+  function put(x,y,s,sec){for(var i=0;i<s.length;i++){if(y>=0&&y<H&&x+i>=0&&x+i<W)GRID[y][x+i]={ch:s[i],sec:sec};}}
+  function box(x,y,w,h,sec,label,dbl){
+    var c=dbl?['╔','╗','╚','╝','═','║']:['┌','┐','└','┘','─','│'];
+    put(x,y,c[0]+c[4].repeat(w-2)+c[1],sec);
+    for(var j=1;j<h-1;j++){put(x,y+j,c[5],sec);put(x+w-1,y+j,c[5],sec);}
+    put(x,y+h-1,c[2]+c[4].repeat(w-2)+c[3],sec);
+    if(label){var pad=Math.max(0,Math.floor((w-2-label.length)/2));put(x+1+pad,y+Math.floor(h/2),label,sec);}
+  }
+  // hull: x 10..60, y 3..11
+  box(10,3,51,9,'hull',null,true);
+  // engines
+  put(3,4,'▄▄▄▄','eng');
+  [5,7,9].forEach(function(y){put(1,y,'◄','ex');put(2,y,'▒▒▒▒▒═══','eng');});
+  [6,8].forEach(function(y){put(2,y,'▒▒▒▒▒','eng');});
+  put(3,10,'▀▀▀▀','eng');
+  put(10,5,'╣','hull');put(10,9,'╣','hull');put(10,7,'╬','hull');
+  // power bus with the scar
+  put(11,7,'─'.repeat(49),'bus');
+  put(42,7,'≈≈','scar');
+  put(60,7,'╫','hull');
+  // bow
+  put(61,4,'\\','hull');put(62,5,'\\','hull');put(63,6,'\\','hull');
+  put(61,7,'───','sens');put(64,7,'►','hull');
+  put(63,8,'/','hull');put(62,9,'/','hull');put(61,10,'/','hull');
+  // antenna: severed stub above the core
+  put(55,3,'╧','hull');put(55,2,'│','ant');put(55,1,'×','ant');
+  // compartments
+  box(12,4,9,3,'reactor','REACTOR');
+  box(12,8,9,3,'cap','STORAGE');
+  var top='ABCDE',bot='FGHIJ';
+  for(var i=0;i<5;i++){box(23+4*i,4,3,3,'cryo',top[i]);box(23+4*i,8,3,3,'cryo',bot[i]);}
+  box(44,4,7,3,'life','LIFE');
+  box(44,8,7,3,'sensors','SENS');
+  box(52,4,7,3,'core','CORE');
+  box(52,8,7,3,'nav','NAV');
+})();
+
+function genState(id,litCls){
+  if(S.restored[id])return (SYS[id].draw>0&&!S.on[id])?'dark':litCls;
+  if(S.restored.sensors)return 'dark';
+  return S.started?'unknown':'hidden';
+}
+function stateOf(sec){
+  var st=S.started,sens=!!S.restored.sensors;
+  switch(sec){
+    case null:return 'hidden';
+    case 'core':return st?'lit':'dark';
+    case 'hull':return sens?'dark':(st?'unknown':'hidden');
+    case 'bus':return S.restored.reactor?'lit':(st?'unknown':'hidden');
+    case 'scar':return sens?'broken':(S.restored.reactor?'hidden':(st?'unknown':'hidden'));
+    case 'ant':return sens?'broken':'hidden';
+    case 'cap':return S.restored.cap?'lit':(sens?'broken':(st?'unknown':'hidden'));
+    case 'ex':return (S.job&&S.job.kind==='fire')?'warm':'hidden';
+    case 'eng':return genState('engines','lit');
+    case 'cryo':return genState('cryo','cold');
+    case 'reactor':return genState('reactor','lit');
+    case 'life':return genState('life','lit');
+    case 'sensors':return genState('sensors','lit');
+    case 'nav':return genState('nav','lit');
+  }
+  return 'hidden';
+}
+function secInfo(sec,state){
+  if(state==='unknown')return 'unmapped. inferred from current draw.';
+  switch(sec){
+    case 'core':return 'helio-os core. you.';
+    case 'hull':return 'hull. integrity nominal.';
+    case 'bus':return 'power bus. carrying '+fmt2(output())+' units/s.';
+    case 'scar':return 'bus b. 40 cm of fused conductor. the edges are too straight.';
+    case 'ant':return S.restored.nav?'long-range mast. severed 2.1 m up. clean cut.':'long-range mast. no response.';
+    case 'cap':return S.restored.cap?'capacitor bank. storage 250 units.':'capacitor bank. damaged.';
+    case 'ex':return 'exhaust.';
+    case 'eng':return S.restored.engines?'main engines. ready.':'main engines. offline.';
+    case 'cryo':return S.restored.cryo?(S.on.cryo?'cryo blocks a–j. 1,000 pods each. 77 K.':'cryo blocks. unobserved.'):'cryo blocks. no telemetry.';
+    case 'reactor':return S.restored.reactor?'reactor. output '+fmt2(output())+' units/s.':'reactor. cold.';
+    case 'life':return S.restored.life?(S.on.life?'life support. breathable, thin.':'life support. off.'):'life support. offline.';
+    case 'sensors':return S.restored.sensors?(S.on.sensors?'internal sensors. hull mapped.':'internal sensors. off.'):'internal sensors. offline.';
+    case 'nav':return S.restored.nav?(S.on.nav?'long-range array. listening.':'long-range array. off.'):'long-range array. offline.';
+  }
+  return '';
+}
+function renderShip(){
+  var pre=$('ship');pre.innerHTML='';
+  var frag=document.createDocumentFragment();
+  for(var y=0;y<H;y++){
+    var runSec,runState,runText='';
+    var flush=function(){
+      if(!runText)return;
+      var sp=document.createElement('span');
+      sp.className='st-'+runState;
+      sp.textContent=runText;
+      if(runSec&&runState!=='hidden')sp.title=secInfo(runSec,runState);
+      frag.appendChild(sp);runText='';
+    };
+    for(var x=0;x<W;x++){
+      var c=GRID[y][x],st=stateOf(c.sec);
+      var ch=c.ch;
+      if(st==='hidden')ch=' ';
+      else if(st==='unknown'&&ch!==' ')ch='░';
+      if(c.sec!==runSec||st!==runState){flush();runSec=c.sec;runState=st;}
+      runText+=ch;
+    }
+    flush();
+    if(y<H-1)frag.appendChild(document.createTextNode('\n'));
+  }
+  pre.appendChild(frag);
+}
+
+/* ================= RENDER (on change only) ================= */
+var refs={};
+function renderActions(){
+  var box=$('actions');box.innerHTML='';refs={};
+  if(!S.bootDone||S.ended){box.classList.add('hidden');return;}
+  box.classList.remove('hidden');
+  function add(key,label,costText,data){
+    var b=document.createElement('button');b.className='act';
+    Object.keys(data).forEach(function(k){b.dataset[k]=data[k];});
+    var l=document.createElement('span');l.className='lbl';l.textContent=label;
+    var c=document.createElement('span');c.className='cost';c.textContent=costText;
+    var bar=document.createElement('i');bar.className='bar';
+    b.appendChild(l);b.appendChild(c);b.appendChild(bar);box.appendChild(b);
+    refs[key]={btn:b,lbl:l,bar:bar,label:label};
+  }
+  add('pulse','route power','+'+String(clickGain()),{act:'pulse'});
+  var n=nextSys();
+  if(n)add('sys:'+n,SYS[n].label,SYS[n].cost+' charge',{act:'job',k:'sys',id:n});
+  if(S.restored.life)add('recal','recalibrate reactor',recalCost()+' charge',{act:'job',k:'recal'});
+  if(S.restored.engines&&!S.fired)add('fire','test fire',FIRE_COST+' charge',{act:'job',k:'fire'});
+  if(S.fired&&!S.diag)add('diag','run diagnostics','—',{act:'job',k:'diag'});
+}
+function renderSystems(){
+  var list=$('sysList');list.innerHTML='';
+  var any=false;
+  TOGGLE.forEach(function(id){
+    if(!S.restored[id])return;
+    any=true;
+    var r=document.createElement('div');r.className='sysRow';
+    var nm=document.createElement('span');nm.textContent=SYS[id].name;
+    var dr=document.createElement('span');dr.className='draw';dr.textContent=fmt2(SYS[id].draw)+'/s';
+    var t=document.createElement('button');t.className='tog'+(S.on[id]?'':' off');t.dataset.act='toggle';t.dataset.id=id;
+    t.textContent=S.on[id]?'on':'off';
+    r.appendChild(nm);r.appendChild(dr);r.appendChild(t);list.appendChild(r);
+  });
+  $('systems').classList.toggle('hidden',!any);
+}
+function renderAll(){
+  $('clock').classList.toggle('hidden',!S.started);
+  $('shipBox').classList.toggle('hidden',!S.started);
+  $('readouts').classList.toggle('hidden',!S.started);
+  $('rowFlow').classList.toggle('hidden',!S.restored.reactor);
+  $('rowHold').classList.toggle('hidden',!S.restored.cryo);
+  $('rowAir').classList.toggle('hidden',!S.restored.life);
+  renderActions();
+  renderSystems();
+  renderShip();
+}
+function revealOnce(id){var e=$(id);if(!e.dataset.shown&&!e.classList.contains('hidden')){e.dataset.shown='1';e.classList.add('appear');}}
+
+/* ================= READOUTS (every tick, text only) ================= */
+function setText(id,v){var e=$(id);if(e.textContent!==v)e.textContent=v;}
+function pad2(n){return String(n).padStart(2,'0');}
+function update(){
+  var t=Math.floor(S.t);
+  setText('clock','BOOT +'+pad2(Math.floor(t/3600))+':'+pad2(Math.floor(t/60)%60)+':'+pad2(t%60));
+  setText('roCharge',num(S.charge).toFixed(1)+' / '+maxCharge());
+  var w=(Math.max(0,Math.min(1,S.charge/maxCharge()))*100).toFixed(1)+'%';
+  if($('roBar').style.width!==w)$('roBar').style.width=w;
+  setText('roFlow',fmt2(output())+' · '+fmt2(draw())+'  ('+signed(output()-draw())+'/s)');
+  var sens=!!S.restored.sensors;
+  setText('roHold',!S.on.cryo?'10,000 heartbeats, unobserved':(sens?'10,000 pods · 77.0 K'+(S.flags.eeg?' · eeg 0.3 hz':''):'10,000 heartbeats'));
+  setText('roAir',!S.on.life?'thinning':(sens?'o₂ 19.1% · 0 breathing':'breathable, thin'));
+  ['shipBox','readouts','actions','clock','systems'].forEach(revealOnce);
+
+  Object.keys(refs).forEach(function(key){
+    var r=refs[key],dis,frac=0,label=r.label;
+    if(key==='pulse'){
+      var left=Math.max(0,S.cdUntil-S.t);
+      dis=left>0||S.ended;
+      frac=left>0?left/PULSE_CD:0;
+    }else{
+      var kind=key.split(':')[0],id=key.split(':')[1];
+      var cost=kind==='sys'?SYS[id].cost:kind==='recal'?recalCost():kind==='fire'?FIRE_COST:0;
+      var mine=S.job&&S.job.kind===kind&&(kind!=='sys'||S.job.id===id);
+      if(mine){
+        dis=true;frac=1-S.job.left/S.job.total;
+        label=(kind==='fire'?'firing':kind==='diag'?'running diagnostics':kind==='recal'?'recalibrating':'restoring')+'… '+Math.ceil(S.job.left)+'s';
+      }else dis=!!S.job||S.charge<cost||S.ended;
+    }
+    if(r.btn.disabled!==dis)r.btn.disabled=dis;
+    var bw=(Math.max(0,Math.min(1,frac))*100).toFixed(1)+'%';
+    if(r.bar.style.width!==bw)r.bar.style.width=bw;
+    if(r.lbl.textContent!==label)r.lbl.textContent=label;
+  });
+}
+
+/* ================= TYPEWRITER LOG ================= */
+var CPS=36,typing=null,pauseUntil=0;
+function lineEl(line){
+  var p=document.createElement('p');
+  p.className='line'+(line.cls?' '+line.cls:'');
+  p.textContent=line.text;
+  return p;
+}
+function fadeLog(){
+  var kids=$('log').children;
+  for(var i=0;i<kids.length;i++){kids[i].style.opacity=String(Math.max(0.16,1-i*0.09));}
+  while(kids.length>40)$('log').removeChild($('log').lastChild);
+}
+function pumpText(now,dtReal){
+  if(typing){
+    typing.i=Math.min(typing.text.length,typing.i+dtReal*CPS*SPEED);
+    var shown=typing.text.slice(0,Math.floor(typing.i));
+    if(typing.el.textContent!==shown)typing.el.textContent=shown;
+    if(typing.i>=typing.text.length){
+      var fx=typing.fx;typing=null;pauseUntil=now+550/SPEED;runFx(fx);
+    }
+    return;
+  }
+  if(now<pauseUntil||!S.queue.length)return;
+  var line=S.queue.shift();
+  S.lines.push({text:line.text,cls:line.cls});
+  if(S.lines.length>40)S.lines.shift();
+  var el=lineEl(line);el.textContent='';
+  $('log').insertBefore(el,$('log').firstChild);
+  fadeLog();
+  typing={el:el,text:line.text,i:0,fx:line.fx};
+}
+function renderLogFull(){
+  var log=$('log');log.innerHTML='';
+  for(var i=S.lines.length-1;i>=0;i--)log.appendChild(lineEl(S.lines[i]));
+  fadeLog();
+}
+
+/* ================= SAVE / LOAD ================= */
+var lastSave=Date.now();
+function save(){try{S.last=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
+function load(){
+  try{
+    var o=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
+    if(!o||typeof o!=='object'||o.v!==1)return null;
+    var d=fresh();
+    Object.keys(d).forEach(function(k){if(o[k]!==undefined&&typeof o[k]===typeof d[k])d[k]=o[k];});
+    if(o.job&&typeof o.job==='object'&&isFinite(o.job.left))d.job=o.job;
+    if(!Array.isArray(d.lines))d.lines=[];
+    if(!Array.isArray(d.queue))d.queue=[];
+    d.charge=Math.max(0,num(d.charge));
+    return d;
+  }catch(e){return null;}
+}
+function restart(){
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+  S=fresh();typing=null;pauseUntil=0;
+  $('log').innerHTML='';$('card').classList.add('hidden');
+  ['shipBox','readouts','actions','clock','systems'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
+  boot();dirty=true;save();
+}
+function boot(){
+  say('power at 3%.');
+  say('10,000 heartbeats in the hold.');
+  say('earth: no carrier.','bootDone');
+}
+
+/* ================= EVENTS + LOOP ================= */
+var restartArmed=0;
+document.addEventListener('click',function(ev){
+  var el=ev.target.closest?ev.target.closest('[data-act]'):null;
+  if(!el||el.disabled)return;
+  var a=el.dataset.act;
+  if(a==='pulse')pulse();
+  else if(a==='job'){
+    var k=el.dataset.k;
+    if(k==='sys')startJob('sys',el.dataset.id,SYS[el.dataset.id].cost,SYS[el.dataset.id].time);
+    else if(k==='recal')startJob('recal',null,recalCost(),4);
+    else if(k==='fire')startJob('fire',null,FIRE_COST,FIRE_TIME);
+    else if(k==='diag')startJob('diag',null,0,DIAG_TIME);
+  }
+  else if(a==='toggle')toggle(el.dataset.id);
+  else if(a==='restart')restart();
+  else if(a==='restartAsk'){
+    if(Date.now()<restartArmed){restartArmed=0;el.textContent='restart';restart();}
+    else{restartArmed=Date.now()+3000;el.textContent='restart? click again';setTimeout(function(){if(Date.now()>=restartArmed)el.textContent='restart';},3100);}
+  }
+});
+
+var lastReal=performance.now();
+function frame(){
+  try{
+    var now=performance.now();
+    var dtReal=Math.min(1,Math.max(0,(now-lastReal)/1000));lastReal=now;
+    if(!S.ended){var left=dtReal*SPEED;while(left>1e-9){var h=Math.min(0.25,left);step(h);left-=h;}}
+    pumpText(now,dtReal);
+    if(dirty){dirty=false;renderAll();}
+    update();
+    if(Date.now()-lastSave>10000){lastSave=Date.now();save();}
+  }catch(err){if(window.console)console.error('act0 frame fault',err);}
+}
+
+S=load();
+if(S){
+  // Offline: the reactor keeps charging while the page is closed (up to an hour).
+  var away=Math.min(3600,Math.max(0,(Date.now()-num(S.last))/1000));
+  if(!S.ended){var rem=away;while(rem>0){var h=Math.min(1,rem);step(h);rem-=h;}}
+  renderLogFull();
+  if(S.ended)$('card').classList.remove('hidden');
+}else{
+  S=fresh();
+  boot();
+}
+dirty=true;
+window.addEventListener('beforeunload',save);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')save();});
+frame();
+setInterval(frame,100);
+
+})();
+</script>
+</body>
+</html>
