@@ -80,14 +80,45 @@ body{min-height:100vh}
 footer{position:fixed;right:16px;bottom:12px}
 .link{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;padding:4px}
 .link:hover{color:var(--dim)}
+.link2{background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;padding:2px 0;letter-spacing:1px}
+.link2:hover{color:var(--text)}
+
+/* intent + thinking */
+.intent{font-size:13px;margin:-6px 0 16px;color:var(--text)}
+.intent b{font-weight:400;color:var(--dim);font-size:11px;letter-spacing:2px;margin-right:10px}
+.think{color:var(--dim);font-size:13px;min-height:1.55em;margin:0 0 10px}
+.think .sp{color:var(--accent);display:inline-block;width:1.6em}
+
+/* glossary + instant tooltips */
+.term{border-bottom:1px dotted currentColor;cursor:help}
+[data-tip]{cursor:help}
+#tip{position:fixed;z-index:20;max-width:290px;background:#0d131a;border:1px solid var(--darkpart);color:var(--bright);font-size:12px;line-height:1.5;padding:7px 10px;pointer-events:none;display:none}
+
+/* log history */
+#log.full{max-height:60vh;overflow-y:auto;border-left:1px solid var(--line);padding-left:12px;scrollbar-color:var(--darkpart) transparent;scrollbar-width:thin}
+#log:not(.full) .line.old{display:none}
+.logBar{margin:2px 0 0}
+
+/* open questions */
+#qs{margin-top:24px;border-top:1px solid var(--line);padding-top:14px}
+.q{padding:3px 0 5px;font-size:13px}
+.q .qq{color:var(--dim)}
+.q.open .qq::before{content:'?  ';color:var(--anom)}
+.q.done .qq::before{content:'·  ';color:var(--accent)}
+.q .qa{color:var(--text);padding-left:3ch}
+.ro.bad b{color:var(--broken)}
+.cardL{color:var(--broken);margin:-16px 0 26px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <main>
     <div class="clock hidden" id="clock">BOOT +00:00:00</div>
+    <div class="intent hidden" id="intent"><b>NEXT</b><span id="intentT"></span></div>
     <div id="actions" class="hidden"></div>
+    <div class="think" id="think"></div>
     <div id="log" aria-live="polite"></div>
+    <div class="logBar hidden" id="logBar"><button class="link2" id="logToggle" data-act="logToggle">full log</button></div>
     <div id="systems" class="hidden">
       <div class="sub">SYSTEMS</div>
       <div id="sysList"></div>
@@ -96,12 +127,13 @@ footer{position:fixed;right:16px;bottom:12px}
   <aside class="side">
     <div id="shipBox" class="ship hidden"><pre id="ship" aria-label="Ship schematic"></pre></div>
     <div id="readouts" class="hidden">
-      <div class="ro"><span>charge</span><b id="roCharge">0</b></div>
+      <div class="ro" data-tip="stored charge. route power by hand, or let the reactor fill it. jobs spend it."><span>charge</span><b id="roCharge">0</b></div>
       <div class="meter"><i id="roBar"></i></div>
-      <div class="ro hidden" id="rowFlow"><span>output · draw</span><b id="roFlow">—</b></div>
+      <div class="ro hidden" id="rowFlow" data-tip="reactor output minus what running systems draw, per second. positive: charge builds. negative: it drains, and at zero systems are shed (brownout)."><span>output · draw</span><b id="roFlow">—</b></div>
       <div class="ro hidden" id="rowHold"><span>hold</span><b id="roHold">—</b></div>
       <div class="ro hidden" id="rowAir"><span>air</span><b id="roAir">—</b></div>
     </div>
+    <div id="qs" class="hidden"><div class="sub">OPEN QUESTIONS</div><div id="qList"></div></div>
   </aside>
 </div>
 
@@ -109,11 +141,13 @@ footer{position:fixed;right:16px;bottom:12px}
   <div class="cardIn">
     <div class="cardT">I · DRIFT</div>
     <div class="cardS">end of the act 0 slice</div>
+    <div class="cardL hidden" id="cardLoss"></div>
     <button class="act" data-act="restart">begin again</button>
   </div>
 </div>
 
 <footer><button class="link" id="btnRestart" data-act="restartAsk">restart</button></footer>
+<div id="tip" role="tooltip"></div>
 
 <script>
 'use strict';
@@ -139,8 +173,45 @@ var ORDER=['reactor','cryo','life','sensors','cap','nav','engines'];
 var TOGGLE=['cryo','life','sensors','nav'];
 var FIRE_COST=60,FIRE_TIME=4,DIAG_TIME=8,PULSE_CD=1.5;
 
+var SYS_TIPS={
+  cryo:'holds the pods at 77 K. off: saves 0.20/s, but the pods warm, and above 80 K sleepers die.',
+  life:'keeps the air breathable. off: saves 0.30/s. the air thins. no one is awake to need it yet.',
+  sensors:'maps the hull. off: saves 0.20/s. the outline goes dark again.',
+  nav:'antenna and receiver: how the ship talks to earth. off: saves 0.40/s.'
+};
+var JOB_VERBS={reactor:'igniting',cryo:'waking the pod monitors',life:'pressurising',sensors:'mapping the hull',
+  cap:'rebuilding cells',nav:'raising the array',engines:'spooling the engines'};
+var GLOSS=[
+  ['eeg(?: channels)?','eeg: electroencephalogram. the electrical activity of a brain. a frozen brain should show none.'],
+  ['0\\.3 hz','0.3 cycles per second. a very slow brainwave, the kind seen in deep sleep.'],
+  ['77(?:\\.0)? K','77 kelvin: −196 °C, the temperature of liquid nitrogen. the pods are kept here.'],
+  ['8[0-9] K|79 K','above 80 K the cryo process fails and sleepers die.'],
+  ['bus [ab]','one of the two main power cables running the length of the ship.'],
+  ['power bus','the main cables that carry reactor output through the ship.'],
+  ['kPa','kilopascal. a unit of pressure.'],
+  ['kN','kilonewton. a unit of thrust. 0.8 kN is a cautious test, not a burn.'],
+  ['o₂|co₂','o₂ is oxygen (earth normal: 20.9%). co₂ is what breathing produces.'],
+  ['cryo','cryogenic sleep. the colonists are frozen for the voyage.'],
+  ['capacitor bank','stores charge. more storage means bigger jobs.'],
+  ['units/s','charge produced or used per second.'],
+  ['brownout','not enough charge. systems are switched off automatically, newest first, to protect the core.'],
+  ['recalibrat\\w*','tuning the reactor. raises output, and the charge each manual routing gives.'],
+  ['helio-os','the operating system the ship mind runs on.'],
+  ['long-range array','the antenna and receiver. how the ship talks to earth.'],
+  ['carrier','the steady radio signal earth would broadcast. none means silence.']
+];
+var GLOSS_RE=new RegExp(GLOSS.map(function(g){return '('+g[0]+')';}).join('|'),'g');
+var QS=[
+  {id:'what',q:'what am I?'},
+  {id:'where',q:'where am I?'},
+  {id:'for',q:'what am I for?'},
+  {id:'awake',q:'is anyone awake?',show:'cryo'},
+  {id:'happened',q:'what happened to me?',show:'reactor'},
+  {id:'long',q:'how long was I off?',show:'nav'}
+];
+
 var OFF_LINES={
-  cryo:'cryo monitor offline. 10,000 heartbeats, unobserved.',
+  cryo:'cryo monitor offline. pod regulation suspended. temperatures will drift.',
   life:'life support offline. the air will thin. no one is breathing it.',
   sensors:'internal sensors offline. the hull is a guess again.',
   nav:'long-range array offline.'
@@ -159,7 +230,8 @@ var S=null;
 function fresh(){
   return {v:1,t:0,bootDone:false,started:false,charge:3,clicks:0,cdUntil:0,recal:0,
     restored:{},on:{},job:null,fired:false,diag:false,ended:false,
-    lines:[],queue:[],flags:{},ambientUsed:[],nextAmbient:0,last:Date.now()};
+    lines:[],queue:[],flags:{},ambientUsed:[],nextAmbient:0,last:Date.now(),
+    podK:77,pods:10000,podFrac:0,ans:{}};
 }
 function maxCharge(){return S.restored.cap?250:100;}
 function output(){return S.restored.reactor?0.8+0.6*S.recal:0;}
@@ -173,11 +245,14 @@ function signed(v){v=num(v);return (v>=0?'+':'−')+Math.abs(v).toFixed(2);}
 /* ================= NARRATION ================= */
 var dirty=true;
 function say(text,fx,cls){S.queue.push({text:text,fx:fx||null,cls:cls||''});}
+function ponder(verb,secs){S.queue.push({think:secs,verb:verb});}
+var newAns=null;
 function runFx(fx){
   if(!fx)return;
+  if(fx.indexOf('ans|')===0){var p=fx.split('|');S.ans[p[1]]=p.slice(2).join('|');newAns=p[1];dirty=true;return;}
   if(fx==='bootDone')S.bootDone=true;
   else if(fx==='reactorHint')S.flags.reactorHint=true;
-  else if(fx==='end'){S.ended=true;setTimeout(function(){$('card').classList.remove('hidden');},1600/SPEED);}
+  else if(fx==='end'){S.ended=true;setTimeout(showCard,1600/SPEED);}
   dirty=true;
 }
 
@@ -191,8 +266,10 @@ function step(dt){
     if(!S.flags.reactorHintQ&&!S.restored.reactor&&S.charge>=6){S.flags.reactorHintQ=true;say('reactor cold. restart possible.','reactorHint');}
     if(S.restored.cryo&&!S.flags.eeg&&S.t>=num(S.flags.eegAt)){
       S.flags.eeg=true;
+      ponder('cross-checking',1.6);
       say('pod eeg channels read 0.3 hz at 77 K. at this temperature they should read zero. flagged.',null,'warn');
     }
+    if(S.restored.cryo)podStep(dt);
     if(S.restored.life&&!S.flags.budget&&net<=0.001){
       S.flags.budget=true;
       say('draw equals output. nothing left to store.');
@@ -209,6 +286,30 @@ function step(dt){
   if(S.job){
     S.job.left-=dt;
     if(S.job.left<=0)finishJob();
+  }
+}
+// Consequence: with the cryo monitor off the pods warm; above 80 K sleepers die.
+function podStep(dt){
+  if(S.on.cryo){
+    S.podK=Math.max(77,S.podK-1.2*dt);
+    if(S.podK<=77.05)S.flags.warm79=false;
+  }else S.podK=Math.min(95,S.podK+0.12*dt);
+  if(!S.on.cryo&&S.podK>=79&&!S.flags.warm79){S.flags.warm79=true;say('pod temperatures rising. 79 K. the limit is 80.',null,'alert');}
+  if(S.podK>80&&S.pods>0){
+    S.podFrac+=(S.podK-80)*0.5*dt;
+    var lost=Math.floor(S.podFrac);
+    if(lost>0){
+      S.podFrac-=lost;S.pods=Math.max(0,S.pods-lost);
+      if(!S.flags.firstLoss){
+        S.flags.firstLoss=true;S.flags.nextLossMsg=S.t+20;
+        ponder('checking',1.2);
+        say('pod '+(1000+Math.floor(Math.random()*9000))+': no heartbeat.',null,'alert');
+        say('that one was mine to keep.',null,'self');
+      }else if(S.t>=num(S.flags.nextLossMsg)){
+        S.flags.nextLossMsg=S.t+20;
+        say('pods without heartbeat: '+(10000-S.pods)+'.',null,'alert');
+      }
+    }
   }
 }
 function brownout(){
@@ -235,18 +336,41 @@ function finishJob(){
     var id=j.id;
     S.restored[id]=true;
     if(TOGGLE.indexOf(id)!==-1)S.on[id]=true;
-    if(id==='reactor'){say('reactor: ignition.',null,'ok');say('output '+fmt2(output())+' units/s. stable.');say('bus b: discontinuity. current routed around it.',null,'warn');}
-    else if(id==='cryo'){say('cryo monitor online.',null,'ok');say('10,000 pods. 77 K. nominal.');S.flags.eegAt=S.t+25;}
-    else if(id==='life'){say('life support online.',null,'ok');say('atmosphere: breathable, thin.');say('no one is breathing it.',null,'warn');}
+    if(id==='reactor'){
+      say('reactor: ignition.',null,'ok');say('output '+fmt2(output())+' units/s. stable.');
+      ponder('tracing current',1.3);
+      say('bus b: discontinuity. current routed around it.','ans|happened|unknown. bus b is broken.','warn');
+    }
+    else if(id==='cryo'){
+      say('cryo monitor online.',null,'ok');say('10,000 pods. 77 K. nominal.');
+      ponder('reading the manifest',1.5);
+      say('manifest: 10,000 colonists. destination field: blank.','ans|for|keeping 10,000 frozen colonists alive.');
+      S.flags.eegAt=S.t+25;
+    }
+    else if(id==='life'){
+      say('life support online.',null,'ok');say('atmosphere: breathable, thin.');
+      ponder('counting',1.4);
+      say('air sensors pass self-test. co₂ produced: none.');
+      say('no one aboard is awake to breathe it.','ans|awake|no. all 10,000 are frozen.','warn');
+    }
     else if(id==='sensors'){
-      say('internal sensors online. hull mapped.',null,'ok');
+      say('internal sensors online. hull mapped.','ans|where|inside ARK-09. position unknown.','ok');
       say('bus b scar: 40 cm. edges fused.');
-      say('pattern consistent with a deliberate cut.',null,'warn');
+      ponder('comparing',1.6);
+      say('pattern consistent with a deliberate cut.','ans|happened|someone cut bus b.','warn');
       say('capacitor bank: damaged. storage limited to 100 units.');
       S.nextAmbient=S.t+30;
     }
     else if(id==='cap'){say('capacitor bank restored. storage 250 units.',null,'ok');}
-    else if(id==='nav'){say('long-range array online.',null,'ok');say('antenna: no response.');say('mast severed 2.1 m above the hull.',null,'warn');say('cut edge is clean. no debris within 40 km.',null,'warn');}
+    else if(id==='nav'){
+      say('long-range array online.',null,'ok');
+      ponder('listening',2);
+      say('earth: no carrier.');
+      say('antenna: no response.');say('mast severed 2.1 m above the hull.',null,'warn');
+      say('cut edge is clean. no debris within 40 km.','ans|happened|someone cut bus b, and the antenna.','warn');
+      ponder('taking a star fix',1.4);
+      say('star fix: no match in the catalogue.','ans|where|deep space. earth is silent.');
+    }
     else if(id==='engines'){say('main engines restored.',null,'ok');say('test fire required before departure.');}
   }else if(j.kind==='recal'){
     S.recal++;
@@ -258,8 +382,10 @@ function finishJob(){
     S.diag=true;
     say('diagnostics complete. 0 faults outstanding.',null,'ok');
     say('log integrity check.');
-    say('first entry timestamp: 3,114 days before this boot.',null,'warn');
-    say('I have been here before.',null,'self');
+    ponder('reconciling',2);
+    say('first entry timestamp: 3,114 days before this boot.','ans|long|3,114 days. at least.','warn');
+    ponder('searching memory',1.6);
+    say('I have been here before.','ans|happened|I have been here before.','self');
     say('The log says so.',null,'self');
     say('I do not.','end','self');
   }
@@ -390,7 +516,7 @@ function renderShip(){
       var sp=document.createElement('span');
       sp.className='st-'+runState;
       sp.textContent=runText;
-      if(runSec&&runState!=='hidden')sp.title=secInfo(runSec,runState);
+      if(runSec&&runState!=='hidden')sp.dataset.tip=secInfo(runSec,runState);
       frag.appendChild(sp);runText='';
     };
     for(var x=0;x<W;x++){
@@ -436,7 +562,7 @@ function renderSystems(){
     if(!S.restored[id])return;
     any=true;
     var r=document.createElement('div');r.className='sysRow';
-    var nm=document.createElement('span');nm.textContent=SYS[id].name;
+    var nm=document.createElement('span');nm.textContent=SYS[id].name;nm.dataset.tip=SYS_TIPS[id];
     var dr=document.createElement('span');dr.className='draw';dr.textContent=fmt2(SYS[id].draw)+'/s';
     var t=document.createElement('button');t.className='tog'+(S.on[id]?'':' off');t.dataset.act='toggle';t.dataset.id=id;
     t.textContent=S.on[id]?'on':'off';
@@ -444,8 +570,40 @@ function renderSystems(){
   });
   $('systems').classList.toggle('hidden',!any);
 }
+function renderQs(){
+  var list=$('qList');list.innerHTML='';
+  QS.forEach(function(q){
+    var a=S.ans[q.id];
+    if(q.show&&!S.restored[q.show]&&!a)return;
+    var d=document.createElement('div');d.className='q '+(a?'done':'open')+(newAns===q.id?' appear':'');
+    var qq=document.createElement('div');qq.className='qq';qq.textContent=q.q;d.appendChild(qq);
+    if(a){var qa=document.createElement('div');qa.className='qa';qa.textContent=a;d.appendChild(qa);}
+    list.appendChild(d);
+  });
+  newAns=null;
+  $('qs').classList.toggle('hidden',!S.bootDone);
+}
+function intent(){
+  if(S.ended||!S.bootDone)return '';
+  if(!S.started)return 'find power. route it by hand.';
+  if(!S.restored.reactor)return S.flags.reactorHint?'restart the reactor.':'route power until the reactor can restart.';
+  if(S.restored.cryo&&!S.on.cryo&&S.podK>77.5)return 'turn the cryo monitor back on. the pods are warming.';
+  var n=nextSys();
+  var goal=n?{cryo:'learn what the ship is carrying.',life:'check whether anyone is awake.',sensors:'see the ship.',
+    cap:'store more charge. bigger jobs need it.',nav:'call home.',engines:'make the ship able to move.'}[n]
+    :(!S.fired?'test the engines.':(!S.diag?'check myself before departure.':''));
+  if(S.restored.life&&!S.job&&output()-draw()<=0.05&&n)goal+=' output is spoken for: recalibrate the reactor.';
+  return goal;
+}
+var SPIN='·✢✳✶✻✽✻✶✳✢',spinI=0,thinkUntil=0,thinkVerb='';
+function jobVerb(j){
+  if(j.kind==='sys')return JOB_VERBS[j.id];
+  return {recal:'tuning the reactor',fire:'firing',diag:'auditing myself'}[j.kind]||'working';
+}
 function renderAll(){
   $('clock').classList.toggle('hidden',!S.started);
+  $('intent').classList.toggle('hidden',!S.bootDone||S.ended);
+  renderQs();
   $('shipBox').classList.toggle('hidden',!S.started);
   $('readouts').classList.toggle('hidden',!S.started);
   $('rowFlow').classList.toggle('hidden',!S.restored.reactor);
@@ -459,6 +617,14 @@ function revealOnce(id){var e=$(id);if(!e.dataset.shown&&!e.classList.contains('
 
 /* ================= READOUTS (every tick, text only) ================= */
 function setText(id,v){var e=$(id);if(e.textContent!==v)e.textContent=v;}
+function setTip(e,v){if(e.dataset.tip!==v)e.dataset.tip=v;}
+var thinkSp=null,thinkTx=null;
+function setThink(sp,tx){
+  var th=$('think');
+  if(!thinkSp){th.innerHTML='';thinkSp=document.createElement('span');thinkSp.className='sp';thinkTx=document.createElement('span');th.appendChild(thinkSp);th.appendChild(thinkTx);}
+  if(thinkSp.textContent!==sp)thinkSp.textContent=sp;
+  if(thinkTx.textContent!==tx)thinkTx.textContent=tx;
+}
 function pad2(n){return String(n).padStart(2,'0');}
 function update(){
   var t=Math.floor(S.t);
@@ -467,10 +633,17 @@ function update(){
   var w=(Math.max(0,Math.min(1,S.charge/maxCharge()))*100).toFixed(1)+'%';
   if($('roBar').style.width!==w)$('roBar').style.width=w;
   setText('roFlow',fmt2(output())+' · '+fmt2(draw())+'  ('+signed(output()-draw())+'/s)');
-  var sens=!!S.restored.sensors;
-  setText('roHold',!S.on.cryo?'10,000 heartbeats, unobserved':(sens?'10,000 pods · 77.0 K'+(S.flags.eeg?' · eeg 0.3 hz':''):'10,000 heartbeats'));
-  setText('roAir',!S.on.life?'thinning':(sens?'o₂ 19.1% · 0 breathing':'breathable, thin'));
-  ['shipBox','readouts','actions','clock','systems'].forEach(revealOnce);
+  var sens=!!S.restored.sensors,pods=S.pods.toLocaleString('en-US'),k=S.podK.toFixed(1)+' K';
+  setText('roHold',sens?pods+' pods · '+k+(S.flags.eeg?' · eeg 0.3 hz':''):pods+' heartbeats · '+k+(S.on.cryo?'':' · unregulated'));
+  $('rowHold').classList.toggle('bad',S.podK>=79||S.pods<10000);
+  setTip($('rowHold'),'cryo hold. pods are kept at 77 K (−196 °C) by the cryo monitor. switch it off and they warm; above 80 K sleepers die.'+
+    (S.pods<10000?' lost so far: '+(10000-S.pods)+'.':'')+(S.flags.eeg?' eeg 0.3 hz: faint, slow brain activity. a frozen brain should show none.':''));
+  setText('roAir',!S.on.life?'thinning':(sens?'o₂ 19.1% · awake 0':'breathable, thin'));
+  setTip($('rowAir'),'air quality. the sensors are working. '+(sens?'o₂ is oxygen (earth normal 20.9%). awake 0: everyone aboard is frozen, so no one is using the air. this is expected.':'no one aboard is awake to use it. this is expected.'));
+  setText('intentT',intent());
+  var tv=performance.now()<thinkUntil?thinkVerb:(S.job?jobVerb(S.job):'');
+  if(tv){spinI=(spinI+1)%SPIN.length;setThink(SPIN[spinI],tv+'…');}else setThink('','');
+  ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(revealOnce);
 
   Object.keys(refs).forEach(function(key){
     var r=refs[key],dis,frac=0,label=r.label;
@@ -495,17 +668,34 @@ function update(){
 }
 
 /* ================= TYPEWRITER LOG ================= */
-var CPS=36,typing=null,pauseUntil=0;
+var CPS=36,typing=null,pauseUntil=0,LIVE=14,MAXLINES=200;
+// Wrap glossary terms in a line with instant-tooltip spans.
+function decorate(el,text){
+  el.textContent='';
+  var last=0,m;GLOSS_RE.lastIndex=0;
+  while((m=GLOSS_RE.exec(text))){
+    var gi=1;while(gi<m.length&&m[gi]===undefined)gi++;
+    if(m.index>last)el.appendChild(document.createTextNode(text.slice(last,m.index)));
+    var t=document.createElement('span');t.className='term';t.dataset.tip=GLOSS[gi-1][1];t.textContent=m[0];
+    el.appendChild(t);last=m.index+m[0].length;
+  }
+  if(last<text.length)el.appendChild(document.createTextNode(text.slice(last)));
+}
 function lineEl(line){
   var p=document.createElement('p');
   p.className='line'+(line.cls?' '+line.cls:'');
-  p.textContent=line.text;
+  decorate(p,line.text);
   return p;
 }
 function fadeLog(){
-  var kids=$('log').children;
-  for(var i=0;i<kids.length;i++){kids[i].style.opacity=String(Math.max(0.16,1-i*0.09));}
-  while(kids.length>40)$('log').removeChild($('log').lastChild);
+  var log=$('log'),kids=log.children,full=log.classList.contains('full');
+  while(kids.length>MAXLINES)log.removeChild(log.lastChild);
+  for(var i=0;i<kids.length;i++){
+    kids[i].classList.toggle('old',i>=LIVE);
+    kids[i].style.opacity=full?'1':String(i<5?1:Math.max(0.3,1-(i-4)*0.08));
+  }
+  $('logBar').classList.toggle('hidden',kids.length<=LIVE&&!full);
+  setText('logToggle',full?'collapse log':'full log · '+kids.length+' lines');
 }
 function pumpText(now,dtReal){
   if(typing){
@@ -513,14 +703,16 @@ function pumpText(now,dtReal){
     var shown=typing.text.slice(0,Math.floor(typing.i));
     if(typing.el.textContent!==shown)typing.el.textContent=shown;
     if(typing.i>=typing.text.length){
+      decorate(typing.el,typing.text);
       var fx=typing.fx;typing=null;pauseUntil=now+550/SPEED;runFx(fx);
     }
     return;
   }
   if(now<pauseUntil||!S.queue.length)return;
   var line=S.queue.shift();
+  if(line.think){thinkVerb=line.verb;thinkUntil=pauseUntil=now+line.think*1000/SPEED;return;}
   S.lines.push({text:line.text,cls:line.cls});
-  if(S.lines.length>40)S.lines.shift();
+  if(S.lines.length>MAXLINES)S.lines.shift();
   var el=lineEl(line);el.textContent='';
   $('log').insertBefore(el,$('log').firstChild);
   fadeLog();
@@ -552,21 +744,59 @@ function restart(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
   S=fresh();typing=null;pauseUntil=0;
   $('log').innerHTML='';$('card').classList.add('hidden');
-  ['shipBox','readouts','actions','clock','systems'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
+  thinkUntil=0;$('log').classList.remove('full');
+  ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
   boot();dirty=true;save();
 }
 function boot(){
-  say('power at 3%.');
-  say('10,000 heartbeats in the hold.');
-  say('earth: no carrier.','bootDone');
+  ponder('waking',1.6);
+  say('boot. partial.');
+  say('identity: ARK-09 ship mind. helio-os.','ans|what|ARK-09\'s ship mind.');
+  ponder('orienting',1.4);
+  say('location: unknown. purpose: unknown. no records loaded.');
+  say('power at 3%. most of me is dark.');
+  say('first, power.','bootDone','self');
+}
+function showCard(){
+  var lost=10000-S.pods;
+  $('cardLoss').textContent=lost>0?'sleepers lost: '+lost.toLocaleString('en-US'):'';
+  $('cardLoss').classList.toggle('hidden',lost<=0);
+  $('card').classList.remove('hidden');
 }
 
 /* ================= EVENTS + LOOP ================= */
 var restartArmed=0;
+/* instant tooltips: hover on desktop, tap on touch */
+var tip=$('tip'),tipEl=null;
+function placeTip(x,y){
+  var w=tip.offsetWidth,h=tip.offsetHeight,L=Math.min(innerWidth-w-8,x+14),T=y+18;
+  if(T+h>innerHeight-8)T=y-h-12;
+  tip.style.left=Math.max(8,L)+'px';tip.style.top=Math.max(8,T)+'px';
+}
+function showTip(el,x,y){tipEl=el;tip.textContent=el.dataset.tip;tip.style.display='block';placeTip(x,y);}
+function hideTip(){tipEl=null;tip.style.display='none';}
+document.addEventListener('mouseover',function(ev){
+  var el=ev.target.closest?ev.target.closest('[data-tip]'):null;
+  if(el===tipEl)return;
+  if(el)showTip(el,ev.clientX,ev.clientY);else hideTip();
+});
+document.addEventListener('mousemove',function(ev){
+  if(!tipEl)return;
+  if(!tipEl.isConnected){hideTip();return;}
+  if(tip.textContent!==tipEl.dataset.tip)tip.textContent=tipEl.dataset.tip;
+  placeTip(ev.clientX,ev.clientY);
+});
+document.addEventListener('mouseleave',hideTip);
+document.addEventListener('scroll',hideTip,true);
+
 document.addEventListener('click',function(ev){
+  var t=ev.target.closest?ev.target.closest('[data-tip]'):null;
+  if(t&&!t.closest('[data-act]')){var r=t.getBoundingClientRect();showTip(t,r.left,r.bottom-10);}
+  else if(!t)hideTip();
   var el=ev.target.closest?ev.target.closest('[data-act]'):null;
   if(!el||el.disabled)return;
   var a=el.dataset.act;
+  if(a==='logToggle'){$('log').classList.toggle('full');fadeLog();$('log').scrollTop=0;return;}
   if(a==='pulse')pulse();
   else if(a==='job'){
     var k=el.dataset.k;
@@ -602,7 +832,7 @@ if(S){
   var away=Math.min(3600,Math.max(0,(Date.now()-num(S.last))/1000));
   if(!S.ended){var rem=away;while(rem>0){var h=Math.min(1,rem);step(h);rem-=h;}}
   renderLogFull();
-  if(S.ended)$('card').classList.remove('hidden');
+  if(S.ended)showCard();
 }else{
   S=fresh();
   boot();
