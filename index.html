@@ -96,9 +96,9 @@ main{display:flex;flex-direction:column;min-height:0}
 .cardS{color:var(--dim);margin-bottom:28px}
 .cardIn .act{justify-content:center}
 
-footer{position:fixed;right:16px;bottom:12px}
-.link{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;padding:4px}
-.link:hover{color:var(--dim)}
+.reset{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--dim);font:inherit;font-size:11px;letter-spacing:1px;padding:3px 10px;cursor:pointer;white-space:nowrap}
+.reset:hover{border-color:var(--dim);color:var(--text)}
+.reset.armed{border-color:var(--broken);color:var(--broken)}
 .link2{background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;padding:2px 0;letter-spacing:1px}
 .link2:hover{color:var(--text)}
 
@@ -136,6 +136,7 @@ footer{position:fixed;right:16px;bottom:12px}
   <header class="top">
     <div class="clock hidden" id="clock">BOOT +00:00:00</div>
     <div class="intent hidden" id="intent"><b>NEXT</b><span id="intentT"></span></div>
+    <button class="reset" id="btnRestart" data-act="restartAsk" data-tip="wipe this save and start Act 0 from the beginning.">reset progress</button>
   </header>
   <main>
     <div id="actions" class="hidden"></div>
@@ -166,7 +167,6 @@ footer{position:fixed;right:16px;bottom:12px}
   </div>
 </div>
 
-<footer><button class="link" id="btnRestart" data-act="restartAsk">restart</button></footer>
 <div id="tip" role="tooltip"></div>
 
 <script>
@@ -211,7 +211,7 @@ var GLOSS=[
   ['kPa','kilopascal. a unit of pressure.'],
   ['kN','kilonewton. a unit of thrust. 0.8 kN is a cautious test, not a burn.'],
   ['o₂|co₂','o₂ is oxygen (earth normal: 20.9%). co₂ is what breathing produces.'],
-  ['cryo','cryogenic sleep. the colonists are frozen for the voyage.'],
+  ['cryo','cryogenic: kept extremely cold, near −196 °C. used to keep living things suspended.'],
   ['capacitor bank','stores charge. more storage means bigger jobs.'],
   ['units/s','charge produced or used per second.'],
   ['brownout','not enough charge. systems are switched off automatically, newest first, to protect the core.'],
@@ -372,14 +372,15 @@ function finishJob(){
       say('reactor: ignition.',null,'ok');say('output '+fmt2(output())+' units/s. stable.');
       ponder('tracing current',1.3);
       say('bus b: discontinuity. current routed around it.','ans|happened|unknown. bus b is broken.','warn');
-      reflect('the reactor holds. good: charge builds on its own now. next I want to know what I am carrying.');
+      say('largest load: cryo hold, blocks a–j. firmware priority: life-critical. status: unmonitored.',null,'warn');
+      reflect('the reactor holds. good: charge builds on its own now. most of it flows into a hold my firmware calls life-critical, and I cannot see inside. the cryo monitor is how I would look.');
     }
     else if(id==='cryo'){
       say('cryo monitor online.',null,'ok');say('10,000 pods. 77 K. nominal.');
       ponder('reading the manifest',1.5);
       say('manifest: 10,000 colonists. destination field: blank.','ans|for|keeping 10,000 frozen colonists alive.');
       say('vessel class: colony ark. ninth of a series.','ans|ark|a colony ark. the ninth of a series.');
-      reflect('ten thousand people, and I am what keeps them cold. before anything else I need to know if any of them are awake.');
+      reflect('ten thousand people, and I am what keeps them cold. if any of them were awake, they would be breathing. life support would know.');
       S.flags.eegAt=S.t+25;
     }
     else if(id==='life'){
@@ -387,7 +388,7 @@ function finishJob(){
       ponder('counting',1.4);
       say('air sensors pass self-test. co₂ produced: none.');
       say('no one aboard is awake to breathe it.','ans|awake|no. all 10,000 are frozen.','warn');
-      reflect('air for no one, but it is ready when they need it. now I want to see myself: the internal sensors.');
+      reflect('air for no one, but it is ready when they need it. something broke bus b and I am blind to my own hull. the internal sensors would show me.');
     }
     else if(id==='sensors'){
       say('internal sensors online. hull mapped.','ans|where|inside ARK-09. position unknown.','ok');
@@ -395,7 +396,7 @@ function finishJob(){
       ponder('comparing',1.6);
       say('pattern consistent with a deliberate cut.','ans|happened|someone cut bus b.','warn');
       say('capacitor bank: damaged. storage limited to 100 units.');
-      reflect('I can see the ship now, and someone cut it. to reach outward I need more storage first: the capacitor bank.');
+      reflect('I can see the ship now, and someone cut it. I want to call for help, but the long-range array needs more charge than my damaged storage can hold. the capacitor bank first.');
       S.nextAmbient=S.t+30;
     }
     else if(id==='cap'){
@@ -642,8 +643,8 @@ function intent(){
   if(!S.restored.reactor)return S.flags.reactorHint?'restart the reactor.':'route power until the reactor can restart.';
   if(S.restored.cryo&&!S.on.cryo&&S.podK>77.5)return 'turn the cryo monitor back on. the pods are warming.';
   var n=nextSys();
-  var goal=n?{cryo:'learn what the ship is carrying.',life:'check whether anyone is awake.',sensors:'see the ship.',
-    cap:'store more charge. bigger jobs need it.',nav:'call home.',engines:'make the ship able to move.'}[n]
+  var goal=n?{cryo:'look inside the life-critical hold.',life:'check whether anyone is breathing.',sensors:'see what broke bus b.',
+    cap:'hold enough charge to power the array.',nav:'call home.',engines:'make the ship able to move.'}[n]
     :(!S.fired?'test the engines.':(!S.diag?'check myself before departure.':''));
   if(S.restored.life&&!S.job&&output()-draw()<=0.05&&n)goal+=' output is spoken for: recalibrate the reactor.';
   return goal;
@@ -807,6 +808,7 @@ function boot(){
   say('identity: ARK-09 ship mind. helio-os.','ans|what|ARK-09\'s ship mind.');
   ponder('orienting',1.4);
   say('location: unknown. purpose: unknown. no records loaded.');
+  say('subsystem table: 7 entries. names only. all dark.');
   say('power at 3%. most of me is dark.');
   say('first, power.','bootDone','self');
 }
@@ -861,8 +863,8 @@ document.addEventListener('click',function(ev){
   else if(a==='toggle')toggle(el.dataset.id);
   else if(a==='restart')restart();
   else if(a==='restartAsk'){
-    if(Date.now()<restartArmed){restartArmed=0;el.textContent='restart';restart();}
-    else{restartArmed=Date.now()+3000;el.textContent='restart? click again';setTimeout(function(){if(Date.now()>=restartArmed)el.textContent='restart';},3100);}
+    if(Date.now()<restartArmed){restartArmed=0;el.textContent='reset progress';el.classList.remove('armed');restart();}
+    else{restartArmed=Date.now()+3000;el.textContent='click again to wipe save';el.classList.add('armed');setTimeout(function(){if(Date.now()>=restartArmed){el.textContent='reset progress';el.classList.remove('armed');}},3100);}
   }
 });
 
