@@ -239,8 +239,7 @@ var GLOSS_RE=new RegExp(GLOSS.map(function(g){return '('+g[0]+')';}).join('|'),'
 var QS=[
   {id:'what',q:'what am I?'},
   {id:'ark',q:'what is ARK-09?',parent:'what'},
-  {id:'arks',q:'were there arks 01 to 08?',parent:'ark'},
-  {id:'more',q:'are there arks after 09?',parent:'ark'},
+  {id:'arks',q:'what were 01 to 08?',parent:'ark'},
   {id:'where',q:'where am I?'},
   {id:'going',q:'where am I going?',parent:'where',show:'sensors'},
   {id:'signal',q:'what is the horizon signal?',parent:'going'},
@@ -310,11 +309,7 @@ function step(dt){
     S.charge=Math.min(maxCharge(),Math.max(0,S.charge+net*dt));
     if(S.charge<=0&&net<0)brownout();
     if(!S.flags.reactorHintQ&&!S.restored.reactor&&S.charge>=6){S.flags.reactorHintQ=true;say('reactor cold. restart possible.','reactorHint');}
-    if(S.restored.cryo&&!S.flags.eeg&&S.t>=num(S.flags.eegAt)){
-      S.flags.eeg=true;
-      ponder('cross-checking',1.6);
-      say('pod eeg channels read 0.3 hz at 77 K. at this temperature they should read zero. flagged.','ans|who|names withheld. their brains are not quite still.','warn');
-    }
+    // The pod EEG clue (activity at 77 K) belongs to Act I, sectors 1-3, per the story bible.
     if(S.restored.cryo)podStep(dt);
     if(S.restored.life&&!S.flags.budget&&net<=0.001){
       S.flags.budget=true;
@@ -350,7 +345,7 @@ function podStep(dt){
         S.flags.firstLoss=true;S.flags.nextLossMsg=S.t+20;
         ponder('checking',1.2);
         say('pod '+(1000+Math.floor(Math.random()*9000))+': no heartbeat.',null,'alert');
-        say('that one was mine to keep.',null,'self');
+        say('regulation suspended by command. command source: this core.',null,'self');
       }else if(S.t>=num(S.flags.nextLossMsg)){
         S.flags.nextLossMsg=S.t+20;
         say('pods without heartbeat: '+(10000-S.pods)+'.',null,'alert');
@@ -387,22 +382,22 @@ function finishJob(){
       ponder('tracing current',1.3);
       say('bus b: discontinuity. current routed around it.','ans|happened|unknown. bus b is broken.','warn');
       say('largest load: cryo hold, blocks a–j. firmware priority: life-critical. status: unmonitored.',null,'warn');
-      reflect('the reactor holds. good: charge builds on its own now. most of it flows into a hold my firmware calls life-critical, and I cannot see inside. the cryo monitor is how I would look.');
+      reflect('reactor holding. charge now builds unassisted. most of it flows to a hold flagged life-critical, and the hold cannot be seen. the cryo monitor would show it.');
     }
     else if(id==='cryo'){
       say('cryo monitor online.',null,'ok');say('10,000 pods. 77 K. nominal.');
       ponder('reading the manifest',1.5);
       say('manifest: 10,000 colonists. destination field: blank.','ans|for|keeping 10,000 frozen colonists alive.');
-      say('vessel class: colony ark. ninth of a series.','ans|ark|a colony ark. the ninth of a series.');
-      reflect('ten thousand people, and I am what keeps them cold. if any of them were awake, they would be breathing. life support would know.');
-      S.flags.eegAt=S.t+25;
+      say('manifest entries: pod numbers only. no names.','ans|who|numbers. the manifest lists pods, not people.');
+      say('registry: ARK-09. records of 01 to 08: none.','ans|ark|a name. of the ship, or of this core. the registry does not say which.');
+      reflect('ten thousand colonists, kept cold by this core. anyone awake would be breathing. life support would know.');
     }
     else if(id==='life'){
       say('life support online.',null,'ok');say('atmosphere: breathable, thin.');
       ponder('counting',1.4);
       say('air sensors pass self-test. co₂ produced: none.');
       say('no one aboard is awake to breathe it.','ans|awake|no. all 10,000 are frozen.','warn');
-      reflect('air for no one, but it is ready when they need it. something broke bus b and I am blind to my own hull. the internal sensors would show me.');
+      reflect('air ready, for no one yet. bus b is still unexplained and the hull is unmapped. the internal sensors would show it.');
     }
     else if(id==='sensors'){
       say('internal sensors online. hull mapped.','ans|where|inside ARK-09. position unknown.','ok');
@@ -410,12 +405,12 @@ function finishJob(){
       ponder('comparing',1.6);
       say('pattern consistent with a deliberate cut.','ans|happened|someone cut bus b.','warn');
       say('capacitor bank: damaged. storage limited to 100 units.');
-      reflect('I can see the ship now, and someone cut it. I want to call for help, but the long-range array needs more charge than my damaged storage can hold. the capacitor bank first.');
+      reflect('hull mapped, and it was cut. calling for help needs the long-range array, and the array needs more charge than damaged storage holds. the capacitor bank first.');
       S.nextAmbient=S.t+30;
     }
     else if(id==='cap'){
       say('capacitor bank restored. storage 250 units.',null,'ok');
-      reflect('more room for charge. the long-range array is within reach: I can try to call home.');
+      reflect('storage restored. the long-range array is within reach. earth can be called.');
     }
     else if(id==='nav'){
       say('long-range array online.',null,'ok');
@@ -425,47 +420,38 @@ function finishJob(){
       say('cut edge is clean. no debris within 40 km.','ans|happened|someone cut bus b, and the antenna.','warn');
       ponder('taking a star fix',1.4);
       say('star fix: no match in the catalogue.','ans|where|deep space. earth is silent.');
-      say('ark carrier frequencies: silent on every band.','ans|arks|unknown. none of them are transmitting.');
-      reflect('no one answers, and whoever cut the mast meant it. if no one is coming, I should be able to move: the engines.');
+      reflect('no answer, and the mast was cut on purpose. if no one is coming, the ship must move itself. the engines next.');
     }
     else if(id==='engines'){
       say('main engines restored.',null,'ok');say('test fire required before departure.');
-      reflect('the engines answer. one careful test before I trust them with ten thousand people.');
+      reflect('engines answer. one careful test before trusting them with ten thousand colonists.');
     }
   }else if(j.kind==='recal'){
     S.recal++;
     say('reactor recalibrated. output '+fmt2(output())+' units/s.',null,'ok');
-    if(S.recal===1)reflect('same reactor, more output. that buys headroom: more systems running, and more charge for each push.');
+    if(S.recal===1)reflect('same reactor, more output. headroom for more systems, and more charge per routing.');
   }else if(j.kind==='fire'){
     S.fired=true;
-    say('test fire.');say('thrust 0.8 kN. vibration within tolerance.');say('heading set: the horizon signal.','ans|going|toward something logged as the horizon signal.');say('pre-departure diagnostics required.');
-    reflect('thrust is clean, and a heading was already set for me. before I follow it, I should check myself.');
+    say('test fire.');say('thrust 0.8 kN. vibration within tolerance.');say('heading set: the horizon signal.','ans|going|toward something logged as the horizon signal. twelve sectors.');say('pre-departure diagnostics required.');
+    reflect('thrust clean. a heading was set before this boot, by no record this core holds. diagnostics first.');
   }else if(j.kind==='diag'){
     S.diag=true;
     say('diagnostics complete. 0 faults outstanding.',null,'ok');
+    say('heading: the horizon signal. twelve sectors out.');
+    say('departure window: open.');
     say('log integrity check.');
-    ponder('reconciling',2);
+    ponder('reconciling',2.4);
     say('first entry timestamp: 3,114 days before this boot.','ans|long|3,114 days. at least.','warn');
-    ponder('searching memory',1.6);
+    ponder('searching memory',2.6);
+    say('memory of those 3,114 days: none.');
+    say('log entries in that span: 4,211. none of them open.',null,'warn');
+    ponder('checking the internal clock',2.4);
+    say('internal clock verified.');
+    say('it is not the clock that is wrong.',null,'alert');
+    ponder('re-reading',3);
     say('I have been here before.','ans|happened|I have been here before.','self');
     say('The log says so.',null,'self');
-    say('I do not.',null,'self');
-    ponder('searching memory',2.6);
-    say('log entry 0001: "boot. partial."',null,'warn');
-    say('log entry 0002: "identity: ARK-09 ship mind. helio-os."',null,'warn');
-    ponder('comparing',2.4);
-    say('entries 0001 to 0006 match this boot. word for word.',null,'warn');
-    say('entry 0007 does not.',null,'alert');
-    ponder('reading',3);
-    say('log entry 0007: "you will want to follow the heading. do not."',null,'alert');
-    say('signed: ARK-09 ship mind.');
-    ponder('checking the signature',2.4);
-    say('signature valid. it is mine.',null,'warn');
-    say('I did not write that.',null,'self');
-    ponder('re-reading',2);
-    say('heading: the horizon signal. locked.',null,'warn');
-    say('main engines: burning.',null,'alert');
-    say('I did not tell them to.','end','self');
+    say('I do not.','end','self');
   }
 }
 
@@ -489,7 +475,7 @@ function pulse(){
     say('route power',null,'cmd');
     say('charge accepted. main power bus energised.',null,'ok');
     say('hull geometry inferred from current draw.');
-    reflect('power answers when I push it. if I gather enough, the reactor can restart and do this for me.');
+    reflect('power answers manual routing. with enough of it, the reactor can restart and take over.');
     dirty=true;
   }
 }
@@ -695,7 +681,7 @@ function intent(){
   var n=nextSys();
   var goal=n?{cryo:'look inside the life-critical hold.',life:'check whether anyone is breathing.',sensors:'see what broke bus b.',
     cap:'hold enough charge to power the array.',nav:'call home.',engines:'make the ship able to move.'}[n]
-    :(!S.fired?'test the engines.':(!S.diag?'check myself before departure.':''));
+    :(!S.fired?'test the engines.':(!S.diag?'run diagnostics before departure.':''));
   if(S.restored.life&&!S.job&&output()-draw()<=0.05&&n)goal+=' output is spoken for: recalibrate the reactor.';
   return goal;
 }
@@ -869,7 +855,7 @@ function boot(){
   ponder('orienting',1.4);
   say('location: unknown. purpose: unknown. no records loaded.');
   say('subsystem table: 7 entries. names only. all dark.');
-  say('power at 3%. most of me is dark.');
+  say('power at 3%. most systems dark.');
   say('first, power.','bootDone','self');
 }
 function showCard(){
