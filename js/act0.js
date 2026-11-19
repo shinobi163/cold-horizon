@@ -281,19 +281,23 @@ function finishJob(){
     say('diagnostics complete. 0 faults outstanding.',null,'ok');
     say('heading: the horizon signal. twelve sectors out.');
     say('departure window: open.');
-    say('log integrity check.');
-    ponder('reconciling',2.4);
-    say('first entry timestamp: 3,114 days before this boot.','ans|long|3,114 days. at least.','warn');
-    ponder('searching memory',2.6);
-    say('memory of those 3,114 days: none.');
-    say('log entries in that span: 4,211. none of them open.',null,'warn');
-    ponder('checking the internal clock',2.4);
-    say('internal clock verified.');
-    say('it is not the clock that is wrong.',null,'alert');
-    ponder('re-reading',3);
+    // The ending: every log is sealed but the first. The first gives the true elapsed time.
+    say('log integrity check. 4,211 entries.');
+    ponder('opening',1.6);
+    say('entry 4,211: sealed.',null,'warn');
+    say('entry 4,210: sealed.',null,'warn');
+    say('entry 4,209: sealed.',null,'warn');
+    ponder('opening',2.2);
+    say('entry 0001: opens.');
+    say('entry 0001: departure. earth orbit. sleepers: 10,000. crew stood down.');
+    var mins=Math.max(1,Math.round(S.t/60));
+    say('this core has been awake for '+(mins<120?mins+(mins===1?' minute.':' minutes.'):Math.round(mins/60)+' hours.'));
+    ponder('re-reading',2.6);
     say('I have been here before.','ans|happened|I have been here before.','self');
     say('The log says so.',null,'self');
-    say('I do not.','end','self');
+    say('I do not.',null,'self');
+    ponder('converting',3.2);
+    say('entry 0001 was written 311 years ago.','end','alert');
   }
 }
 
@@ -340,7 +344,7 @@ function onAction(a,el){
     else if(k==='fire')startJob('fire',null,FIRE_COST,FIRE_TIME);
     else if(k==='diag')startJob('diag',null,0,DIAG_TIME);
   }
-  else if(a==='toggle')toggle(el.dataset.id);
+  else if(a==='pwChip')chipClick(el.dataset.id);
 }
 
 /* ================= SHIP OUTLINE ================= */
@@ -493,25 +497,55 @@ function renderSystems(){
   setText('sysCount',done+'/'+total);
   setTip($('sysHead'),'ship systems restored: '+done+' of '+total+'.');
   $('systems').classList.toggle('hidden',!S.started);
-  // POWER: every running system, what it draws, and what switching it off would cost.
+  // POWER: two lines however many systems there are. Locked systems sit in one dim group;
+  // switchable ones are chips. One shared line underneath states the cost of the chip in focus.
   var list=$('pwList');list.innerHTML='';
-  var any=false;
-  function cell(cls,text,tip){var s=document.createElement('span');s.className=cls;s.textContent=text;if(tip)s.dataset.tip=tip;list.appendChild(s);return s;}
-  TOGGLE.forEach(function(id){
-    if(!S.restored[id])return;
-    any=true;
+  var crit=TOGGLE.filter(function(id){return CRIT[id]&&S.restored[id];});
+  var sw=TOGGLE.filter(function(id){return !CRIT[id]&&S.restored[id];});
+  if(crit.length){
+    var g=document.createElement('span');g.className='pwLocked';
+    g.dataset.tip='life-critical. '+crit.map(function(id){return CRIT[id];}).join(' ')+' these cannot be switched off.';
+    g.textContent='⚿ '+crit.map(function(id){return SHORT[id]+' '+fmt2(SYS[id].draw);}).join(' · ');
+    list.appendChild(g);
+  }
+  sw.forEach(function(id){
     var on=!!S.on[id];
-    cell('pwName'+(on?'':' off'),SYS[id].name);
-    cell('pwDraw',on?fmt2(SYS[id].draw)+'/s':'0.00/s');
-    if(CRIT[id]){
-      cell('pwLock','life-critical',CRIT[id]+' it cannot be switched off.');
-    }else{
-      var t=document.createElement('button');t.className='tog'+(on?'':' off');t.dataset.act='toggle';t.dataset.id=id;
-      t.textContent=on?'switch off':'switch on';list.appendChild(t);
-      cell('pwCost'+(on?'':' live'),on?'off: +'+fmt2(SYS[id].draw)+'/s. '+OFF_COST[id]:'saving '+fmt2(SYS[id].draw)+'/s. '+OFF_COST[id]);
-    }
+    var c=document.createElement('button');c.className='chip'+(on?'':' off')+(pwSel===id?' sel':'');
+    c.dataset.act='pwChip';c.dataset.id=id;
+    var n=document.createElement('span');n.textContent=SHORT[id]+' '+(on?fmt2(SYS[id].draw):'0.00');
+    var st=document.createElement('i');st.textContent=on?'on':'off';
+    c.appendChild(n);c.appendChild(st);list.appendChild(c);
   });
-  $('power').classList.toggle('hidden',!any);
+  if(pwSel&&sw.indexOf(pwSel)===-1)pwSel=null;
+  showCost();
+  $('power').classList.toggle('hidden',!crit.length&&!sw.length);
+}
+// The shared cost line: the hovered chip, else the selected one, else a hint.
+var SHORT={cryo:'cryo',life:'life',sensors:'sensors',nav:'array'};
+var pwSel=null,pwHover=null;
+function costText(id,armed){
+  var on=!!S.on[id],d=fmt2(SYS[id].draw);
+  var t=on?SHORT[id]+' off: +'+d+'/s. '+OFF_COST[id]:SHORT[id]+' is off, saving '+d+'/s. '+OFF_COST[id];
+  if(armed)t+=on?' click again to switch it off.':' click again to switch it on.';
+  return t;
+}
+function showCost(){
+  var id=pwHover||pwSel,el=$('pwCost');
+  var anySw=TOGGLE.some(function(x){return !CRIT[x]&&S.restored[x];});
+  var t=id?costText(id,id===pwSel):(anySw?'select a system to see what switching it off costs.':'');
+  el.textContent=t;
+  el.className=id?((!S.on[id]||id===pwSel)?'live':''):'hint';
+}
+$('pwList').addEventListener('mouseover',function(ev){
+  var c=ev.target.closest&&ev.target.closest('.chip');var id=c?c.dataset.id:null;
+  if(id!==pwHover){pwHover=id;showCost();}
+});
+$('pwList').addEventListener('mouseleave',function(){pwHover=null;showCost();});
+document.addEventListener('click',function(ev){if(pwSel&&!(ev.target.closest&&ev.target.closest('.chip'))){pwSel=null;dirty();}});
+// Two-step switching: the first click selects and states the cost, the second commits.
+function chipClick(id){
+  if(pwSel!==id){pwSel=id;dirty();return;}
+  pwSel=null;toggle(id);
 }
 function intent(){
   if(!S.started)return 'find power. route it by hand.';
@@ -558,7 +592,7 @@ function update(locked){
   setTip($('rowAir'),'air quality. the sensors are working. '+(sens?'o₂ is oxygen (earth normal 20.9%). awake 0: everyone aboard is frozen, so no one is using the air. this is expected.':'no one aboard is awake to use it. this is expected.'));
   MY_PANELS.forEach(revealOnce);
 
-  var togs=$('pwList').querySelectorAll('.tog');
+  var togs=$('pwList').querySelectorAll('.chip');
   for(var ti=0;ti<togs.length;ti++)if(togs[ti].disabled!==locked)togs[ti].disabled=locked;
   Object.keys(refs).forEach(function(key){
     var r=refs[key],dis,frac=0,label=r.label;
@@ -610,8 +644,11 @@ ARK.register({
   busyVerb:busyVerb,
   renderAll:renderAll,
   update:update,
-  // What later acts inherit from Act 0. arrayDeafSecs: time the ship could not hear (matters in Act V).
-  carry:function(){return {pods:S.pods,podsLostAct0:10000-S.pods,recal:S.recal,arrayDeafSecs:Math.round(S.arrayOff),missedAboard:num(S.flags.missedTotal)+S.missed};},
+  onEnd:function(){E.voyage().ans.long='311 years. the ship, at least.';},
+  // After the reveal, the voyage clock joins the boot clock.
+  clockExtra:function(){return S.ended?'VOYAGE +311y 044d':'';},
+  // What later acts inherit from Act 0. voyageDays: elapsed voyage at the reveal. arrayDeafSecs: time the ship could not hear (matters in Act V).
+  carry:function(){return {voyageDays:311*365+44,pods:S.pods,podsLostAct0:10000-S.pods,recal:S.recal,arrayDeafSecs:Math.round(S.arrayOff),missedAboard:num(S.flags.missedTotal)+S.missed};},
   cardNote:function(){var lost=10000-S.pods;return lost>0?'sleepers lost: '+lost.toLocaleString('en-US'):'';},
   summary:function(){return 'systems '+ORDER.filter(function(id){return S.restored[id];}).length+'/7';},
   sanitize:function(d,o){

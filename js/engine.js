@@ -303,7 +303,7 @@ function clearScreen(){
   typing=null;pauseUntil=0;thinkUntil=0;
   $('log').innerHTML='';$('log').classList.remove('full');
   $('card').classList.add('hidden');$('tree').classList.add('hidden');
-  ['clock','intent','qs'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
+  ['clock','clock2','intent','qs'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
   if(A&&A.resetDom)A.resetDom();
   fadeLog();dirty=true;
 }
@@ -427,6 +427,9 @@ function renderAll(){
 function update(){
   var t=Math.floor(S.t);
   setText('clock','BOOT +'+pad2(Math.floor(t/3600))+':'+pad2(Math.floor(t/60)%60)+':'+pad2(t%60));
+  var extra=A.clockExtra?A.clockExtra():'';
+  setText('clock2',extra);$('clock2').classList.toggle('hidden',!extra);
+  if(extra)revealOnce('clock2');
   setText('intentT',(S.ended||!S.bootDone)?'':A.intent());
   var tv=performance.now()<thinkUntil?thinkVerb:(A.busyVerb?A.busyVerb():'');
   if(tv){spinI=(spinI+1)%SPIN.length;setThink(SPIN[spinI],tv+'…');}else setThink('','');
