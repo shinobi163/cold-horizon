@@ -8,7 +8,7 @@
 :root{
   --bg:#07090c;--text:#c8d1dc;--bright:#e6edf5;--dim:#5b6676;--faint:#232c38;--line:#1a222d;
   --accent:#7dd3fc;--cold:#93c5fd;--warm:#fbbf24;--broken:#f43f5e;--darkpart:#3a4554;
-  --tele:#8b97a6;--anom:#f5c26b;
+  --tele:#8b97a6;--anom:#f5c26b;--mind:#c4b5fd;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;font-size:14px;line-height:1.55}
@@ -22,7 +22,7 @@ body{min-height:100vh}
 .top{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 28px;min-height:22px;margin-bottom:14px}
 .top .clock,.top .intent{margin:0}
 main{display:flex;flex-direction:column;min-height:0}
-.side{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.side{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 #log{flex:1 1 auto;min-height:0;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
 @media (max-width:700px){
   .wrap{height:auto;grid-template-columns:1fr;grid-template-rows:auto;padding-bottom:56px}
@@ -56,6 +56,7 @@ main{display:flex;flex-direction:column;min-height:0}
 #log .line.warn{color:var(--anom)}
 #log .line.alert{color:var(--broken)}
 #log .line.self{color:var(--bright)}
+#log .line.mind{color:var(--mind);font-style:italic}
 
 /* systems */
 #systems{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:2px 0 14px}
@@ -118,14 +119,14 @@ footer{position:fixed;right:16px;bottom:12px}
 .logBar{margin:2px 0 0}
 
 /* open questions */
-#qs{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
-.q{display:grid;grid-template-columns:minmax(0,13.5em) minmax(0,1fr);gap:0 12px;padding:2px 0 3px;font-size:12.5px;line-height:1.45}
-@media (max-width:420px){.q{grid-template-columns:1fr}}
+#qs{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+#qList{overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.q{padding:2px 0 3px 3ch;text-indent:-3ch;font-size:12.5px;line-height:1.45}
+.q.d1{margin-left:2.5ch}.q.d2{margin-left:5ch}
 .q .qq{color:var(--dim)}
 .q.open .qq::before{content:'?  ';color:var(--anom)}
 .q.done .qq::before{content:'·  ';color:var(--accent)}
-.q .qa{color:var(--text)}
-@media (max-width:420px){.q .qa{padding-left:3ch}}
+.q .qa{color:var(--text);margin-left:1.5ch}
 .ro.bad b{color:var(--broken)}
 .cardL{color:var(--broken);margin:-16px 0 26px}
 </style>
@@ -220,14 +221,24 @@ var GLOSS=[
   ['carrier','the steady radio signal earth would broadcast. none means silence.']
 ];
 var GLOSS_RE=new RegExp(GLOSS.map(function(g){return '('+g[0]+')';}).join('|'),'g');
+// Questions open as their parent is answered; some stay open past Act 0.
 var QS=[
   {id:'what',q:'what am I?'},
+  {id:'ark',q:'what is ARK-09?',parent:'what'},
+  {id:'arks',q:'were there arks 01 to 08?',parent:'ark'},
+  {id:'more',q:'are there arks after 09?',parent:'ark'},
   {id:'where',q:'where am I?'},
+  {id:'going',q:'where am I going?',parent:'where',show:'sensors'},
+  {id:'signal',q:'what is the horizon signal?',parent:'going'},
   {id:'for',q:'what am I for?'},
+  {id:'who',q:'who are the colonists?',parent:'for'},
   {id:'awake',q:'is anyone awake?',show:'cryo'},
   {id:'happened',q:'what happened to me?',show:'reactor'},
+  {id:'whocut',q:'who cut me?',parent:'happened',show:'sensors'},
   {id:'long',q:'how long was I off?',show:'nav'}
 ];
+var QDEPTH={};QS.forEach(function(q){QDEPTH[q.id]=q.parent?QDEPTH[q.parent]+1:0;});
+var THINK_VERBS=['thinking','weighing it','considering','working it through'];
 
 var OFF_LINES={
   cryo:'cryo monitor offline. pod regulation suspended. temperatures will drift.',
@@ -265,6 +276,8 @@ function signed(v){v=num(v);return (v>=0?'+':'−')+Math.abs(v).toFixed(2);}
 var dirty=true;
 function say(text,fx,cls){S.queue.push({text:text,fx:fx||null,cls:cls||''});}
 function ponder(verb,secs){S.queue.push({think:secs,verb:verb});}
+// A plain-language reflection: what just happened and what it makes possible.
+function reflect(text){ponder(THINK_VERBS[Math.floor(Math.random()*THINK_VERBS.length)],1.3);say(text,null,'mind');}
 var newAns=null;
 function runFx(fx){
   if(!fx)return;
@@ -286,7 +299,7 @@ function step(dt){
     if(S.restored.cryo&&!S.flags.eeg&&S.t>=num(S.flags.eegAt)){
       S.flags.eeg=true;
       ponder('cross-checking',1.6);
-      say('pod eeg channels read 0.3 hz at 77 K. at this temperature they should read zero. flagged.',null,'warn');
+      say('pod eeg channels read 0.3 hz at 77 K. at this temperature they should read zero. flagged.','ans|who|names withheld. their brains are not quite still.','warn');
     }
     if(S.restored.cryo)podStep(dt);
     if(S.restored.life&&!S.flags.budget&&net<=0.001){
@@ -359,11 +372,14 @@ function finishJob(){
       say('reactor: ignition.',null,'ok');say('output '+fmt2(output())+' units/s. stable.');
       ponder('tracing current',1.3);
       say('bus b: discontinuity. current routed around it.','ans|happened|unknown. bus b is broken.','warn');
+      reflect('the reactor holds. good: charge builds on its own now. next I want to know what I am carrying.');
     }
     else if(id==='cryo'){
       say('cryo monitor online.',null,'ok');say('10,000 pods. 77 K. nominal.');
       ponder('reading the manifest',1.5);
       say('manifest: 10,000 colonists. destination field: blank.','ans|for|keeping 10,000 frozen colonists alive.');
+      say('vessel class: colony ark. ninth of a series.','ans|ark|a colony ark. the ninth of a series.');
+      reflect('ten thousand people, and I am what keeps them cold. before anything else I need to know if any of them are awake.');
       S.flags.eegAt=S.t+25;
     }
     else if(id==='life'){
@@ -371,6 +387,7 @@ function finishJob(){
       ponder('counting',1.4);
       say('air sensors pass self-test. co₂ produced: none.');
       say('no one aboard is awake to breathe it.','ans|awake|no. all 10,000 are frozen.','warn');
+      reflect('air for no one, but it is ready when they need it. now I want to see myself: the internal sensors.');
     }
     else if(id==='sensors'){
       say('internal sensors online. hull mapped.','ans|where|inside ARK-09. position unknown.','ok');
@@ -378,9 +395,13 @@ function finishJob(){
       ponder('comparing',1.6);
       say('pattern consistent with a deliberate cut.','ans|happened|someone cut bus b.','warn');
       say('capacitor bank: damaged. storage limited to 100 units.');
+      reflect('I can see the ship now, and someone cut it. to reach outward I need more storage first: the capacitor bank.');
       S.nextAmbient=S.t+30;
     }
-    else if(id==='cap'){say('capacitor bank restored. storage 250 units.',null,'ok');}
+    else if(id==='cap'){
+      say('capacitor bank restored. storage 250 units.',null,'ok');
+      reflect('more room for charge. the long-range array is within reach: I can try to call home.');
+    }
     else if(id==='nav'){
       say('long-range array online.',null,'ok');
       ponder('listening',2);
@@ -389,14 +410,21 @@ function finishJob(){
       say('cut edge is clean. no debris within 40 km.','ans|happened|someone cut bus b, and the antenna.','warn');
       ponder('taking a star fix',1.4);
       say('star fix: no match in the catalogue.','ans|where|deep space. earth is silent.');
+      say('ark carrier frequencies: silent on every band.','ans|arks|unknown. none of them are transmitting.');
+      reflect('no one answers, and whoever cut the mast meant it. if no one is coming, I should be able to move: the engines.');
     }
-    else if(id==='engines'){say('main engines restored.',null,'ok');say('test fire required before departure.');}
+    else if(id==='engines'){
+      say('main engines restored.',null,'ok');say('test fire required before departure.');
+      reflect('the engines answer. one careful test before I trust them with ten thousand people.');
+    }
   }else if(j.kind==='recal'){
     S.recal++;
     say('reactor recalibrated. output '+fmt2(output())+' units/s.',null,'ok');
+    if(S.recal===1)reflect('same reactor, more output. that buys headroom: more systems running, and more charge for each push.');
   }else if(j.kind==='fire'){
     S.fired=true;
-    say('test fire.');say('thrust 0.8 kN. vibration within tolerance.');say('heading set: the horizon signal.');say('pre-departure diagnostics required.');
+    say('test fire.');say('thrust 0.8 kN. vibration within tolerance.');say('heading set: the horizon signal.','ans|going|toward something logged as the horizon signal.');say('pre-departure diagnostics required.');
+    reflect('thrust is clean, and a heading was already set for me. before I follow it, I should check myself.');
   }else if(j.kind==='diag'){
     S.diag=true;
     say('diagnostics complete. 0 faults outstanding.',null,'ok');
@@ -430,6 +458,7 @@ function pulse(){
     say('route power',null,'cmd');
     say('charge accepted. main power bus energised.',null,'ok');
     say('hull geometry inferred from current draw.');
+    reflect('power answers when I push it. if I gather enough, the reactor can restart and do this for me.');
     dirty=true;
   }
 }
@@ -590,15 +619,21 @@ function renderSystems(){
 }
 function renderQs(){
   var list=$('qList');list.innerHTML='';
+  var fresh=null;
   QS.forEach(function(q){
     var a=S.ans[q.id];
-    if(q.show&&!S.restored[q.show]&&!a)return;
-    var d=document.createElement('div');d.className='q '+(a?'done':'open')+(newAns===q.id?' appear':'');
-    var qq=document.createElement('div');qq.className='qq';qq.textContent=q.q;d.appendChild(qq);
-    if(a){var qa=document.createElement('div');qa.className='qa';qa.textContent=a;d.appendChild(qa);}
+    if(!a){
+      if(q.parent&&!S.ans[q.parent])return;
+      if(q.show&&!S.restored[q.show])return;
+    }
+    var d=document.createElement('div');d.className='q d'+QDEPTH[q.id]+' '+(a?'done':'open')+(newAns===q.id?' appear':'');
+    var qq=document.createElement('span');qq.className='qq';qq.textContent=q.q;d.appendChild(qq);
+    if(a){var qa=document.createElement('span');qa.className='qa';decorate(qa,a);d.appendChild(qa);}
     list.appendChild(d);
+    if(newAns===q.id)fresh=d;
   });
   newAns=null;
+  if(fresh&&list.scrollHeight>list.clientHeight)list.scrollTop=Math.max(0,fresh.offsetTop-list.offsetTop-24);
   $('qs').classList.toggle('hidden',!S.bootDone);
 }
 function intent(){
