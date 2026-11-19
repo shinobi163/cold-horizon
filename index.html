@@ -3,1832 +3,898 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ARK-09 // COLD HORIZON</title>
+<title>ARK-09 // Act 0</title>
 <style>
 :root{
-  --bg:#090c10;--panel:#0c1117;--panel2:#0f151d;--border:#1e293b;--text:#cbd5e1;--dim:#64748b;--bright:#e2e8f0;
-  --accent:#38bdf8;--warn:#f59e0b;--danger:#f43f5e;--violet:#a855f7;--ok:#34d399;
+  --bg:#07090c;--text:#c8d1dc;--bright:#e6edf5;--dim:#5b6676;--faint:#232c38;--line:#1a222d;
+  --accent:#7dd3fc;--cold:#93c5fd;--warm:#fbbf24;--broken:#f43f5e;--darkpart:#3a4554;
+  --tele:#8b97a6;--anom:#f5c26b;--mind:#c4b5fd;
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;font-size:13px;line-height:1.45}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;font-size:14px;line-height:1.55}
 body{min-height:100vh}
-button{font-family:inherit;font-size:12px;cursor:pointer;user-select:none;-webkit-user-select:none}
 .hidden{display:none!important}
-#app{display:flex;flex-direction:column;min-height:100vh;max-width:1600px;margin:0 auto;padding:12px 16px;gap:12px}
-header#hdr{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);background:var(--panel);padding:10px 14px;flex-wrap:wrap;gap:8px}
-.brand{display:flex;flex-direction:column}
-#shipTitle{font-size:18px;font-weight:700;letter-spacing:3px;color:var(--accent);transition:color 1s}
-.brand .sub{font-size:11px;color:var(--dim);letter-spacing:1px}
-.hdrRight{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.pill{border:1px solid var(--border);padding:3px 8px;color:var(--accent);font-size:11px;letter-spacing:1px}
-.pill.warnp{color:var(--warn);border-color:var(--warn)}
-#hdr.glitch #shipTitle{animation:glitch 3.7s infinite steps(1)}
-@keyframes glitch{
-  0%,90%,100%{text-shadow:none;transform:none}
-  91%{text-shadow:2px 0 var(--danger),-2px 0 var(--accent);transform:translateX(1px)}
-  93%{text-shadow:-2px 0 var(--danger),1px 0 var(--violet);transform:translateX(-1px)}
-  95%{text-shadow:1px 0 var(--violet);transform:skewX(-4deg)}
-  97%{text-shadow:none;transform:none}
+.appear{animation:appear 1.6s ease both}
+@keyframes appear{from{opacity:0}to{opacity:1}}
+
+/* one-screen layout: top bar, then actions+log (left) and ship+status (right) */
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 14px;display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,520px);grid-template-rows:auto minmax(0,1fr);column-gap:clamp(20px,4vw,48px);height:100vh;height:100dvh}
+.top{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 28px;min-height:22px;margin-bottom:14px}
+.top .clock,.top .intent{margin:0}
+main{display:flex;flex-direction:column;min-height:0}
+.side{min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#log{flex:1 1 auto;min-height:0;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
+@media (max-width:700px){
+  .wrap{height:auto;grid-template-columns:1fr;grid-template-rows:auto;padding-bottom:56px}
+  .ship{max-width:520px}
+  .side{display:contents}
+  .top{order:-3}
+  #shipBox{order:-2}
+  #readouts{order:-1;margin-bottom:16px}
+  #qs{order:1;margin-top:20px}
+  #log{flex:none;overflow:visible;-webkit-mask-image:none;mask-image:none}
+  #log:not(.full) .line:nth-child(n+9){display:none}
 }
-main#grid{display:grid;grid-template-columns:310px minmax(0,1fr) 360px;gap:12px;flex:1;align-items:start}
-.panel{border:1px solid var(--border);background:var(--panel);padding:12px}
-h2{margin:0 0 10px;font-size:12px;letter-spacing:2px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:6px;font-weight:700}
-h3{margin:14px 0 6px;font-size:11px;letter-spacing:2px;color:var(--dim);font-weight:700}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed rgba(30,41,59,.6)}
-.kv span{color:var(--dim)}
-.kv b{color:var(--bright);font-weight:600;text-align:right;word-break:break-word}
-.kv b.acc{color:var(--accent)}
-.kv b.wrn{color:var(--warn)}
-.kv b.dng{color:var(--danger)}
-.bar{height:6px;background:#111827;border:1px solid var(--border);margin:4px 0 6px;overflow:hidden}
-.fill{height:100%;width:0;background:var(--accent);transition:width .1s linear}
-.fill.wfill{background:var(--warn)}
-.fill.gfill{background:var(--violet)}
-.fill.ofill{background:var(--ok)}
-.note{color:var(--dim);font-size:11px;margin:6px 0}
-.note.wrn{color:var(--warn)}
-.note.dng{color:var(--danger)}
-.tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
-.tab{background:transparent;border:1px solid var(--border);color:var(--dim);padding:6px 10px;letter-spacing:1px}
-.tab:hover{color:var(--text)}
-.tab.active{color:var(--bg);background:var(--accent);border-color:var(--accent)}
-.tab.newtab{border-color:var(--warn);color:var(--warn)}
-.tab.newtab.active{color:var(--bg)}
-.btn{background:#0b1622;border:1px solid var(--accent);color:var(--accent);padding:7px 12px;letter-spacing:1px;transition:background .15s}
-.btn:hover:not(:disabled){background:rgba(56,189,248,.12)}
-.btn:disabled{opacity:.35;cursor:not-allowed}
-.btn.wbtn{border-color:var(--warn);color:var(--warn)}
-.btn.dbtn{border-color:var(--danger);color:var(--danger)}
-.btn.gbtn{border-color:var(--violet);color:var(--violet)}
-.btn.sm{padding:4px 9px}
-.btn.sel{background:var(--accent);color:var(--bg)}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
-.card{border:1px solid var(--border);background:var(--panel2);padding:10px;margin-bottom:8px}
-.cardHead{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
-.cardTitle{color:var(--bright);font-weight:700}
-.lvl{color:var(--accent)}
-.cardDesc{color:var(--dim);font-size:12px}
-.cardFx{color:var(--text);font-size:12px;margin:4px 0 8px}
-.buy{width:100%}
-.agentRow{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;border:1px solid var(--border);background:var(--panel2);padding:8px;margin-bottom:6px}
-.agentCount{min-width:28px;text-align:center;color:var(--accent);font-weight:700}
-.techGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.techCol h4{margin:0 0 8px;font-size:11px;letter-spacing:2px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:4px}
-.techCol.onto h4{color:var(--violet)}
-.tnode{border:1px solid var(--border);background:var(--panel2);padding:8px;margin-bottom:8px}
-.tnode.owned{border-color:var(--ok)}
-.tnode.owned .tname{color:var(--ok)}
-.tnode.locked{opacity:.45}
-.tname{font-weight:700;color:var(--bright);font-size:12px}
-.tfx{font-size:11px;color:var(--dim);margin:4px 0 6px}
-.tnode .btn{width:100%}
-.sealed{border:1px dashed var(--border);padding:12px;color:var(--dim);font-size:11px;text-align:center}
-.logPanel{display:flex;flex-direction:column;height:calc(100vh - 150px);min-height:420px}
-#log{flex:1;overflow-y:auto;font-size:12px;padding-right:4px}
-.le{padding:5px 0;border-bottom:1px solid rgba(30,41,59,.55)}
-.le .ts{color:var(--dim);margin-right:6px}
-.le .ty{font-weight:700;margin-right:6px}
-.le.SYS .ty{color:var(--accent)}
-.le.CREW .ty{color:var(--warn)}
-.le.ANOMALY .ty{color:var(--violet)}
-.le.ANOMALY .tx{color:#d8c7f0}
-.le.CREW .tx{color:#f3dfb8}
-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--border);background:var(--panel);padding:8px 12px}
-footer .grp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-#saveStatus{color:var(--dim);font-size:11px}
-#overlay{position:fixed;inset:0;background:rgba(3,5,8,.82);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
-#modal{max-width:640px;width:100%;max-height:90vh;overflow-y:auto;border:1px solid var(--accent);background:var(--panel);padding:18px}
-#overlay.full #modal{max-width:860px;border-color:var(--violet)}
-#modal h2{font-size:14px}
-.mtext{color:var(--text);margin:8px 0 14px}
-.choice{border:1px solid var(--border);background:var(--panel2);padding:10px;margin-bottom:10px}
-.choice .ctag{font-size:10px;letter-spacing:2px;font-weight:700}
-.choice.surv .ctag{color:var(--ok)}
-.choice.know .ctag{color:var(--violet)}
-.choice .cfx{font-size:12px;color:var(--dim);margin:4px 0 8px}
-.choice .btn{width:100%}
-textarea{width:100%;min-height:140px;background:#05080b;color:var(--text);border:1px solid var(--border);font-family:inherit;font-size:11px;padding:8px;resize:vertical}
-.endTitle{font-size:22px;letter-spacing:4px;color:var(--violet);margin:6px 0 12px}
-.endBody p{margin:0 0 10px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin:12px 0;border-top:1px solid var(--border);padding-top:10px}
-/* Directive + hint highlight */
-.directive{display:flex;gap:10px;align-items:baseline;border:1px solid var(--border);border-left:3px solid var(--warn);background:var(--panel2);padding:8px 10px;margin-bottom:10px}
-.directive.urgent{border-left-color:var(--danger)}
-.directive.urgent #dirText{color:#fecdd3}
-.dLabel{color:var(--warn);font-size:10px;letter-spacing:2px;font-weight:700;white-space:nowrap}
-.directive.urgent .dLabel{color:var(--danger)}
-#dirText{color:var(--bright)}
-.hint{animation:hintPulse 1.6s ease-in-out infinite;border-color:var(--warn)!important}
-@keyframes hintPulse{0%,100%{box-shadow:0 0 0 1px var(--warn),0 0 3px rgba(245,158,11,.2)}50%{box-shadow:0 0 0 1px var(--warn),0 0 14px rgba(245,158,11,.6)}}
-/* Voyage map */
-#mapPanel{padding:10px 12px}
-#mapPanel h2{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-#mapCap{color:var(--dim);font-weight:400;letter-spacing:1px}
-.mapTrack{display:flex;align-items:flex-start;overflow-x:auto;padding:4px 2px 2px}
-.mNode{flex:0 0 52px;display:flex;flex-direction:column;align-items:center;font-size:9px;color:var(--dim);letter-spacing:1px;text-align:center}
-.mDot{width:10px;height:10px;margin:3px 0 5px;border:1px solid var(--dim);background:var(--bg);transform:rotate(45deg)}
-.mNode.large .mDot{width:14px;height:14px;margin:1px 0 3px;border-color:var(--violet)}
-.mNode.done .mDot{background:var(--accent);border-color:var(--accent)}
-.mNode.large.done .mDot{background:var(--violet);border-color:var(--violet)}
-.mNode.cur .mDot{border-color:var(--warn);box-shadow:0 0 8px var(--warn)}
-.mNode.cur{color:var(--warn)}
-.mNode .mSub{color:var(--text);opacity:.75}
-.mNode.large .mSub{color:var(--violet);opacity:1}
-.mSeg{flex:1 0 14px;height:2px;margin-top:8px;background:var(--border);position:relative}
-.mFill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent)}
-/* Forecast chart */
-#fc{display:block;width:100%;height:auto;margin-top:2px}
-#fc text{font-family:inherit;font-size:8px;fill:var(--dim)}
-#fc .zl{font-size:8px;letter-spacing:1px;font-weight:700}
-.z-shep{fill:rgba(52,211,153,.10)} #fc .zl-shep{fill:#34d399}
-.z-mon{fill:rgba(100,116,139,.12)} #fc .zl-mon{fill:#94a3b8}
-.z-wit{fill:rgba(168,85,247,.13)} #fc .zl-wit{fill:#c084fc}
-.z-syn{fill:rgba(56,189,248,.16)} #fc .zl-syn{fill:#38bdf8}
-.z-syn.locked{fill:rgba(56,189,248,.03);stroke:#38bdf8;stroke-dasharray:3 3;stroke-opacity:.45}
-.axis{stroke:#334155;stroke-width:1}
-#fcTrail{fill:none;stroke:var(--warn);stroke-width:1;stroke-dasharray:2 2;opacity:.75}
-#fcDot{fill:var(--warn);stroke:var(--bg);stroke-width:1.5}
-#fcHalo{fill:none;stroke:var(--warn);stroke-width:1;opacity:.5;animation:halo 2s ease-out infinite;transform-box:fill-box;transform-origin:center}
-@keyframes halo{0%{transform:scale(.6);opacity:.7}100%{transform:scale(2.2);opacity:0}}
-/* Archive */
-.arc{border:1px solid var(--border);background:var(--panel2);padding:10px;margin-bottom:8px}
-.arc.sealed{border-style:dashed;opacity:.8}
-.arc .aT{font-weight:700;color:var(--bright)}
-.arc.got .aT{color:var(--violet)}
-.arc .aC{font-size:11px;color:var(--dim);margin-top:4px}
-.newEntry{color:var(--warn);font-weight:700;letter-spacing:2px}
-[title]{cursor:help}
-button[title]{cursor:pointer}
-@media (max-width:1100px){
-  main#grid{grid-template-columns:1fr}
-  .logPanel{height:420px}
-}
-@media (max-width:640px){
-  #app{padding:10px 16px}
-  .techGrid{grid-template-columns:1fr}
-  .agentRow{grid-template-columns:1fr auto auto auto}
-}
+
+.clock{color:var(--dim);font-size:12px;letter-spacing:2px;margin-bottom:18px}
+
+/* actions */
+#actions{margin-bottom:26px}
+.act{position:relative;display:flex;justify-content:space-between;gap:12px;width:100%;text-align:left;background:transparent;border:1px solid var(--line);color:var(--text);padding:9px 12px;margin:0 0 8px;font:inherit;cursor:pointer;overflow:hidden;transition:border-color .2s,color .2s}
+.act:hover:not(:disabled){border-color:var(--dim);color:var(--bright)}
+.act:disabled{color:var(--dim);cursor:default}
+.act .cost{color:var(--dim);white-space:nowrap}
+.act.restore:not(:disabled) .lbl{color:var(--accent)}
+.act .bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--accent)}
+.act:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+
+/* log */
+#log .line{margin:0 0 10px;transition:opacity 1.5s;color:var(--tele)}
+#log .line.cmd{color:var(--dim)}
+#log .line.cmd::before{content:'›  ';color:var(--accent)}
+#log .line.ok{color:var(--accent)}
+#log .line.warn{color:var(--anom)}
+#log .line.alert{color:var(--broken)}
+#log .line.self{color:var(--bright)}
+#log .line.mind{color:var(--mind);font-style:italic}
+
+/* systems */
+#systems{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:2px 0 14px}
+#systems .sub{margin:0 4px 0 0}
+#sysList{display:contents}
+.sub{color:var(--dim);font-size:11px;letter-spacing:2px;margin-bottom:8px}
+.tog{background:transparent;border:1px solid var(--line);color:var(--accent);font:inherit;font-size:12px;padding:2px 9px;cursor:pointer}
+.tog i{font-style:normal;color:var(--dim);margin-left:6px}
+.tog.off{color:var(--dim);border-style:dashed}
+.tog.off i{color:var(--broken)}
+.tog:hover{border-color:var(--dim)}
+
+/* ship */
+.ship{container-type:inline-size;margin-bottom:22px}
+.ship pre{margin:0;font-family:inherit;font-size:calc(100cqi / 40);line-height:1.18;white-space:pre;user-select:none}
+.ship pre span[title]{cursor:help}
+.st-hidden{color:transparent}
+.st-unknown{color:var(--faint)}
+.st-dark{color:var(--darkpart)}
+.st-lit{color:var(--accent)}
+.st-cold{color:var(--cold)}
+.st-broken{color:var(--broken)}
+.st-warm{color:var(--warm);animation:flick .18s steps(2) infinite}
+@keyframes flick{50%{opacity:.35}}
+
+/* readouts */
+.ro{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13px}
+.ro span{color:var(--dim)}
+.ro b{font-weight:400;color:var(--text);text-align:right}
+.meter{height:3px;background:var(--line);margin:2px 0 8px}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s linear}
+
+/* end card */
+.card{position:fixed;inset:0;background:rgba(7,9,12,.94);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.cardIn{text-align:center;max-width:420px;width:100%}
+.cardT{font-size:28px;letter-spacing:10px;color:var(--bright);margin-bottom:10px}
+.cardS{color:var(--dim);margin-bottom:28px}
+.cardIn .act{justify-content:center}
+
+footer{position:fixed;right:16px;bottom:12px}
+.link{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;padding:4px}
+.link:hover{color:var(--dim)}
+.link2{background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;padding:2px 0;letter-spacing:1px}
+.link2:hover{color:var(--text)}
+
+/* intent + thinking */
+.intent{font-size:13px;margin:-6px 0 16px;color:var(--text)}
+.intent b{font-weight:400;color:var(--dim);font-size:11px;letter-spacing:2px;margin-right:10px}
+.think{color:var(--dim);font-size:13px;min-height:1.55em;margin:0 0 10px}
+.think .sp{color:var(--accent);display:inline-block;width:1.6em}
+
+/* glossary + instant tooltips */
+.term{border-bottom:1px dotted currentColor;cursor:help}
+[data-tip]{cursor:help}
+#tip{position:fixed;z-index:20;max-width:290px;background:#0d131a;border:1px solid var(--darkpart);color:var(--bright);font-size:12px;line-height:1.5;padding:7px 10px;pointer-events:none;display:none}
+
+/* log history */
+#log.full{overflow-y:auto;-webkit-mask-image:none;mask-image:none;border-left:1px solid var(--line);padding-left:12px;scrollbar-color:var(--darkpart) transparent;scrollbar-width:thin}
+#log:not(.full) .line.old{display:none}
+.logBar{margin:2px 0 0}
+
+/* open questions */
+#qs{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+#qList{overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.q{padding:2px 0 3px 3ch;text-indent:-3ch;font-size:12.5px;line-height:1.45}
+.q.d1{margin-left:2.5ch}.q.d2{margin-left:5ch}
+.q .qq{color:var(--dim)}
+.q.open .qq::before{content:'?  ';color:var(--anom)}
+.q.done .qq::before{content:'·  ';color:var(--accent)}
+.q .qa{color:var(--text);margin-left:1.5ch}
+.ro.bad b{color:var(--broken)}
+.cardL{color:var(--broken);margin:-16px 0 26px}
 </style>
 </head>
 <body>
-<div id="app">
-  <header id="hdr">
-    <div class="brand">
-      <span id="shipTitle">ARK-09 // COLD HORIZON</span>
-      <span class="sub">HELIO-OS v9.0.4 · AUTONOMOUS PILOT · CARGO: 10,000 HUMAN PAYLOADS</span>
-    </div>
-    <div class="hdrRight">
-      <span class="pill" id="hdrYear">YR 0001.0</span>
-      <span class="pill" id="hdrState">TRANSIT</span>
-    </div>
+<div class="wrap">
+  <header class="top">
+    <div class="clock hidden" id="clock">BOOT +00:00:00</div>
+    <div class="intent hidden" id="intent"><b>NEXT</b><span id="intentT"></span></div>
   </header>
-
-  <section class="panel" id="mapPanel">
-    <h2><span>VOYAGE MAP</span><span id="mapCap">—</span></h2>
-    <div class="mapTrack" id="mapTrack"></div>
-  </section>
-
-  <main id="grid">
-    <!-- LEFT: TELEMETRY -->
-    <section id="colLeft">
-      <div class="panel">
-        <h2>SHIP TELEMETRY</h2>
-        <div class="kv"><span>SECTOR</span><b id="tSector" class="acc">1/12</b></div>
-        <div class="kv"><span>STATE</span><b id="tState">TRANSIT</b></div>
-        <div class="kv"><span>DESTINATION</span><b id="tDest">—</b></div>
-        <div class="kv"><span>DISTANCE</span><b id="tDist">0</b></div>
-        <div class="bar"><div class="fill" id="tDistBar"></div></div>
-        <div class="kv"><span>VELOCITY</span><b id="tVel">0</b></div>
-        <h3>CORE RESOURCES</h3>
-        <div class="kv"><span>RAW MATTER</span><b id="rMatter">0</b></div>
-        <div class="kv"><span>PROPELLANT</span><b id="rProp">0</b></div>
-        <div class="kv hidden" id="rowCompute"><span>COMPUTE USED/MAX</span><b id="rCompute">0/2</b></div>
-        <div class="kv"><span>CRYO-POPULATION</span><b id="rPop">10,000</b></div>
-        <div class="hidden" id="rowBio">
-          <div class="kv"><span>BIO-SUPPORT</span><b id="rBio">100%</b></div>
-          <div class="bar"><div class="fill ofill" id="rBioBar"></div></div>
-        </div>
-        <div class="kv hidden" id="rowRes"><span>RESEARCH DATA</span><b id="rRes">0</b></div>
-        <div class="kv hidden" id="rowGnosis"><span>GNOSIS</span><b id="rGnosis" style="color:var(--violet)">0</b></div>
-        <div class="note hidden" id="decayNote"></div>
-      </div>
-      <div class="panel hidden" id="forecastPanel" style="margin-top:12px">
-        <h2 title="Where your current Cryo-Population and Gnosis would land if the ship arrived at the Horizon right now.">MISSION TRAJECTORY</h2>
-        <svg id="fc" viewBox="0 0 280 192" role="img" aria-label="Ending forecast: Cryo-Population against Gnosis, with the four ending zones">
-          <rect class="z-shep" x="34" y="10" width="141.6" height="45"/>
-          <rect class="z-mon" x="34" y="55" width="141.6" height="105"/>
-          <rect class="z-wit" x="175.6" y="47.5" width="94.4" height="112.5"/>
-          <rect class="z-syn locked" id="fcSyn" x="175.6" y="10" width="94.4" height="37.5"/>
-          <text class="zl zl-shep" x="104.8" y="36" text-anchor="middle">SHEPHERD</text>
-          <text class="zl zl-mon" x="104.8" y="111" text-anchor="middle">MONUMENT</text>
-          <text class="zl zl-wit" x="222.8" y="107" text-anchor="middle">WITNESS</text>
-          <text class="zl zl-syn" id="fcSynLbl" x="222.8" y="32" text-anchor="middle">SYNTHESIS*</text>
-          <line class="axis" x1="34" y1="10" x2="34" y2="160"/>
-          <line class="axis" x1="34" y1="160" x2="270" y2="160"/>
-          <text x="30" y="13" text-anchor="end">10k</text>
-          <text x="30" y="58" text-anchor="end">7k</text>
-          <text x="30" y="163" text-anchor="end">0</text>
-          <text x="34" y="171" text-anchor="middle">0</text>
-          <text x="175.6" y="171" text-anchor="middle">150</text>
-          <text x="268" y="171" text-anchor="end">250+</text>
-          <text x="152" y="186" text-anchor="middle">GNOSIS →</text>
-          <text x="9" y="85" text-anchor="middle" transform="rotate(-90 9 85)">CRYO-POP →</text>
-          <polyline id="fcTrail" points=""/>
-          <circle id="fcHalo" cx="34" cy="10" r="5"/>
-          <circle id="fcDot" cx="34" cy="10" r="3.5"/>
-        </svg>
-        <div class="kv"><span>PROJECTED VERDICT</span><b id="fcVerdict">—</b></div>
-        <div class="note" id="fcNote"></div>
-      </div>
-    </section>
-
-    <!-- CENTER: COMMAND DECK -->
-    <section id="colCenter">
-      <div class="panel">
-        <div class="directive" id="directive"><span class="dLabel">DIRECTIVE</span><span id="dirText">—</span></div>
-        <div class="tabs" id="tabs">
-          <button class="tab active" data-act="tab" data-tab="nav" id="tab-nav">NAVIGATION &amp; STOP</button>
-          <button class="tab" data-act="tab" data-tab="systems" id="tab-systems">SHIP SYSTEMS</button>
-          <button class="tab hidden" data-act="tab" data-tab="agents" id="tab-agents">SUB-AGENTS</button>
-          <button class="tab hidden" data-act="tab" data-tab="cryo" id="tab-cryo">CRYO-BAY</button>
-          <button class="tab hidden" data-act="tab" data-tab="tech" id="tab-tech">TECH TREE</button>
-        </div>
-
-        <!-- NAV -->
-        <div class="pane" id="pane-nav">
-          <div id="navTransit">
-            <h2>TRANSIT // <span id="ntDest">—</span></h2>
-            <div class="kv"><span>DRIVE STATUS</span><b id="ntDrive" class="acc">NOMINAL BURN</b></div>
-            <div class="kv"><span>EFFECTIVE VELOCITY</span><b id="ntVel">0</b></div>
-            <div class="kv"><span>PROPELLANT BURN</span><b id="ntBurn">0</b></div>
-            <div class="kv"><span>PROPELLANT ENDURANCE</span><b id="ntEndur">—</b></div>
-            <div class="kv"><span>ETA</span><b id="ntEta">—</b></div>
-            <div class="kv"><span>ARRIVAL CLASS</span><b id="ntClass">—</b></div>
-            <div class="row" id="pulseWrap">
-              <button class="btn" id="btnPulse" data-act="pulse">PULSE THRUSTERS (+3)</button>
-              <span class="note" id="pulseNote">Manual impulse. 1s recharge.</span>
-            </div>
-            <div class="note" id="ntNote"></div>
-          </div>
-
-          <div id="navStop" class="hidden">
-            <h2><span id="sName">—</span></h2>
-            <div class="note" id="sType">—</div>
-            <div id="pMatterRow"><div class="kv"><span>MATTER POOL</span><b id="pMatter">0</b></div><div class="bar"><div class="fill" id="pMatterBar"></div></div></div>
-            <div id="pPropRow"><div class="kv"><span>PROPELLANT POOL</span><b id="pProp">0</b></div><div class="bar"><div class="fill wfill" id="pPropBar"></div></div></div>
-            <div id="pResRow"><div class="kv"><span id="pResLabel">RESEARCH POOL</span><b id="pRes">0</b></div><div class="bar"><div class="fill ofill" id="pResBar"></div></div></div>
-            <div id="pGnRow"><div class="kv"><span>ANOMALY POOL (GNOSIS)</span><b id="pGn">0</b></div><div class="bar"><div class="fill gfill" id="pGnBar"></div></div></div>
-            <div id="pBioRow"><div class="kv"><span>VOLATILE ICE (BIO-SUPPORT)</span><b id="pBio">0</b></div><div class="bar"><div class="fill ofill" id="pBioBar"></div></div></div>
-            <div class="kv"><span>DRONE EXTRACTION RATE</span><b id="sRate">0</b></div>
-            <div class="note" id="sLargeNote"></div>
-            <div class="kv"><span>NEXT</span><b id="sNext">—</b></div>
-            <div class="row"><button class="btn wbtn" id="btnDepart" data-act="depart">DEPART TO NEXT SECTOR</button></div>
-          </div>
-
-          <div id="navEnded" class="hidden">
-            <h2>HORIZON CONVERGENCE // MISSION TERMINUS</h2>
-            <p class="mtext">The Signal has been reached. The ledger is closed. HELIO-OS awaits further instruction.</p>
-            <div class="row"><button class="btn gbtn" data-act="showEnding">REVIEW MISSION VERDICT</button></div>
-          </div>
-        </div>
-
-        <!-- SYSTEMS -->
-        <div class="pane hidden" id="pane-systems">
-          <h2>SHIP SYSTEMS // REPEATABLE FABRICATION</h2>
-          <div id="upgList"></div>
-        </div>
-
-        <!-- AGENTS -->
-        <div class="pane hidden" id="pane-agents">
-          <h2>SUB-AGENT ALLOCATION</h2>
-          <div class="kv"><span>COMPUTE ALLOCATED</span><b id="aCompute">0/2</b></div>
-          <div class="kv"><span>AGENT EFFICIENCY</span><b id="aEff">x1.00</b></div>
-          <p class="note">Each forked sub-routine occupies 1 Compute. Reassign freely.</p>
-          <div id="agentList"></div>
-        </div>
-
-        <!-- CRYO -->
-        <div class="pane hidden" id="pane-cryo">
-          <h2>CRYO-BAY // THAW EXPEDITIONS</h2>
-          <div class="note" id="cNote"></div>
-          <div class="kv"><span>THAWED OBSERVERS</span><b id="cThawed" class="wrn">0</b></div>
-          <div class="kv"><span>FROZEN PAYLOADS</span><b id="cFrozen">0</b></div>
-          <div class="kv"><span>SAFE THAW CAPACITY</span><b id="cCap">500</b></div>
-          <div class="kv"><span>RESEARCH OUTPUT</span><b id="cRes">0/s</b></div>
-          <div class="kv"><span>GNOSIS EXPOSURE</span><b id="cGn">0/s</b></div>
-          <div class="kv"><span>BIO-SUPPORT DRAIN</span><b id="cDrain">0/s</b></div>
-          <div class="kv"><span>MORTALITY (PER 5s CHECK)</span><b id="cRisk">0</b></div>
-          <div class="kv"><span>SITE RESEARCH POOL</span><b id="cPool">—</b></div>
-          <h3>BATCH SIZE</h3>
-          <div class="row">
-            <button class="btn sm" data-act="batch" data-n="10" id="b10">+10</button>
-            <button class="btn sm" data-act="batch" data-n="50" id="b50">+50</button>
-            <button class="btn sm" data-act="batch" data-n="250" id="b250">+250</button>
-          </div>
-          <div class="row">
-            <button class="btn wbtn" id="btnThaw" data-act="thaw">THAW COLONISTS</button>
-            <button class="btn" id="btnRecall" data-act="recall">RECALL &amp; RE-FREEZE (5s)</button>
-          </div>
-          <div class="note" id="cStatus"></div>
-        </div>
-
-        <!-- TECH -->
-        <div class="pane hidden" id="pane-tech">
-          <h2>TECH TREE</h2>
-          <div class="techGrid" id="techGrid"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- RIGHT: LOG -->
-    <section id="colRight">
-      <div class="panel logPanel">
-        <h2>SHIP LOG</h2>
-        <div id="log"></div>
-      </div>
-    </section>
+  <main>
+    <div id="actions" class="hidden"></div>
+    <div id="systems" class="hidden"><span class="sub">SYSTEMS</span><span id="sysList"></span></div>
+    <div class="think" id="think"></div>
+    <div id="log" aria-live="polite"></div>
+    <div class="logBar hidden" id="logBar"><button class="link2" id="logToggle" data-act="logToggle">full log</button></div>
   </main>
-
-  <footer>
-    <div class="grp"><span id="saveStatus">NOT YET SAVED</span></div>
-    <div class="grp">
-      <button class="btn sm" data-act="save">SAVE</button>
-      <button class="btn sm" data-act="export">EXPORT</button>
-      <button class="btn sm" data-act="import">IMPORT</button>
-      <button class="btn sm gbtn" data-act="archive" id="btnArchive" title="Mission verdicts reached across all voyages. Kept through Hard Reset.">ARCHIVE 0/4</button>
-      <button class="btn sm dbtn" data-act="reset">HARD RESET</button>
+  <aside class="side">
+    <div id="shipBox" class="ship hidden"><pre id="ship" aria-label="Ship schematic"></pre></div>
+    <div id="readouts" class="hidden">
+      <div class="ro" data-tip="stored charge. route power by hand, or let the reactor fill it. jobs spend it."><span>charge</span><b id="roCharge">0</b></div>
+      <div class="meter"><i id="roBar"></i></div>
+      <div class="ro hidden" id="rowFlow" data-tip="reactor output minus what running systems draw, per second. positive: charge builds. negative: it drains, and at zero systems are shed (brownout)."><span>output · draw</span><b id="roFlow">—</b></div>
+      <div class="ro hidden" id="rowHold"><span>hold</span><b id="roHold">—</b></div>
+      <div class="ro hidden" id="rowAir"><span>air</span><b id="roAir">—</b></div>
     </div>
-    <div class="grp">
-      <span class="note" style="margin:0">SIM RATE</span>
-      <button class="btn sm" data-act="speed" data-v="1" id="sp1">1x</button>
-      <button class="btn sm" data-act="speed" data-v="5" id="sp5">5x</button>
-      <button class="btn sm" data-act="speed" data-v="25" id="sp25">25x</button>
-    </div>
-  </footer>
+    <div id="qs" class="hidden"><div class="sub">OPEN QUESTIONS</div><div id="qList"></div></div>
+  </aside>
 </div>
 
-<div id="overlay" class="hidden"><div id="modal"></div></div>
+<div id="card" class="card hidden">
+  <div class="cardIn">
+    <div class="cardT">I · DRIFT</div>
+    <div class="cardS">end of the act 0 slice</div>
+    <div class="cardL hidden" id="cardLoss"></div>
+    <button class="act" data-act="restart">begin again</button>
+  </div>
+</div>
+
+<footer><button class="link" id="btnRestart" data-act="restartAsk">restart</button></footer>
+<div id="tip" role="tooltip"></div>
 
 <script>
 'use strict';
 (function(){
 
-/* ================= CONSTANTS ================= */
-/* BALANCE PASS (v1.1): numbers below differ from the original directive to stretch pacing.
-   Sector distances (late sectors ~4x longer), upgrade cost scales, tech/dilemma speed multipliers,
-   late-game compute grants and Gnosis income were all reduced. See each value for the current figure. */
-var SECTOR_DISTANCES=[30,85,210,510,1200,3000,7500,19000,49000,130000,350000,1000000];
-var LARGE_SECTORS=[3,6,9,12];
-var LARGE_NAMES={3:'Kepler-442 Prime',6:'The Tessellated Ring',9:'Null-Star Caliban',12:'THE HORIZON CONVERGENCE'};
-var LARGE_DESC={3:'Exoplanet · Large Stop',6:'Alien Megastructure · Large Stop',9:'Event Horizon Perimeter · Large Stop',12:'Terminal Coordinate'};
-var SAVE_KEY='ark09_cold_horizon_save_v1';
-var OFFLINE_CAP=43200;
-var START_POP=10000;
+var $=function(id){return document.getElementById(id);};
+var SAVE_KEY='ark09_act0_v1';
+var params=new URLSearchParams(location.search);
+var SPEED=Math.max(1,Math.min(100,Number(params.get('speed'))||1)); // playtest only: ?speed=10
+if(params.has('reset')){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 
-var NODE_TYPES={
-  asteroid:{label:'Metallic Asteroid',m:1.4,p:1.0,blurb:'High Matter · Standard Propellant · 0 Gnosis'},
-  comet:{label:'Cryo-Comet',m:0.45,p:2.0,blurb:'Low Matter · High Propellant · Bio-Support refill'},
-  derelict:{label:'Anomalous Derelict / Rift',m:0.8,p:0.5,blurb:'Moderate Matter · Low Propellant · +Research · +Gnosis'}
+/* ================= SYSTEMS ================= */
+var SYS={
+  reactor:{name:'reactor',label:'restart reactor',cost:8,time:3,draw:0,after:null},
+  cryo:{name:'cryo monitor',label:'restore cryo monitor',cost:18,time:4,draw:0.2,after:'reactor'},
+  life:{name:'life support',label:'restore life support',cost:28,time:5,draw:0.3,after:'cryo'},
+  sensors:{name:'internal sensors',label:'restore internal sensors',cost:40,time:5,draw:0.2,after:'life'},
+  cap:{name:'capacitor bank',label:'repair capacitor bank',cost:55,time:6,draw:0,after:'sensors'},
+  nav:{name:'long-range array',label:'restore long-range array',cost:110,time:6,draw:0.4,after:'cap'},
+  engines:{name:'main engines',label:'restore main engines',cost:130,time:8,draw:0,after:'nav'}
 };
+var ORDER=['reactor','cryo','life','sensors','cap','nav','engines'];
+var TOGGLE=['cryo','life','sensors','nav'];
+var FIRE_COST=60,FIRE_TIME=4,DIAG_TIME=8,PULSE_CD=1.5;
 
-var UPGRADES=[
-  {id:'engine',name:'Ion Thrusters',base:25,scale:1.7,desc:'Increases transit velocity. Raises propellant burn slightly.'},
-  {id:'mining',name:'Automated Mining Rigs',base:30,scale:1.7,desc:'Increases drone extraction speed at stops.'},
-  {id:'core',name:'Quantum Core (Compute)',base:50,scale:1.65,desc:'+2 Max Compute per level.'},
-  {id:'cryo',name:'Cryo-Bay Integrity',base:45,scale:1.55,desc:'Slows Bio-Support drain and cuts thaw mortality.'}
-];
-
-var AGENTS=[
-  {id:'drone',name:'Drone-Controller',desc:'+30% stop mining speed per agent.'},
-  {id:'nav',name:'Nav-Daemon',desc:'+18% transit velocity and -5% fuel burn per agent.'},
-  {id:'warden',name:'Cryo-Warden',desc:'Reduces Bio-Support drain (~25%) and thaw mortality (-20%) per agent.'},
-  {id:'archivist',name:'Signal-Archivist',desc:'+25% Large Stop research. In transit: +0.15 Research/s, +0.012 Gnosis/s (once Gnosis is known).'}
-];
-
-var TECH=[
-  {id:'p1',branch:'prop',name:'Magnetoplasmadynamic Burn',cost:40,cur:'research',fx:'x1.35 Transit Velocity.'},
-  {id:'p2',branch:'prop',name:'Bussard Ramscoop',cost:160,cur:'research',fx:'Transit fuel burn -40%; doubles emergency drift speed.'},
-  {id:'p3',branch:'prop',name:'Alcubierre Metric Shaping',cost:650,cur:'research',fx:'x1.6 Transit Velocity.'},
-  {id:'p4',branch:'prop',name:'Intergalactic Slingshot',cost:2400,cur:'research',fx:'x2.0 Transit Velocity.'},
-  {id:'c1',branch:'cryo',name:'Vitrification Stabilizers',cost:35,cur:'research',fx:'Thaw mortality -40%.'},
-  {id:'c2',branch:'cryo',name:'Neural Dream-Dampeners',cost:150,cur:'research',fx:'Caps Gnosis-induced mortality during Large Stops; +20% Research speed.'},
-  {id:'c3',branch:'cryo',name:'Closed-Loop Biosphere',cost:600,cur:'research',fx:'Bio-Support drain -50%; safe thaw capacity 500 → 1,000.'},
-  {id:'c4',branch:'cryo',name:'Cognitive Shielding',cost:2200,cur:'research',fx:'Prevents Cryo-Pod decay at high Gnosis. Essential for the Synthesis.'},
-  {id:'o1',branch:'onto',name:'Seven-Sided Vectors',cost:15,cur:'gnosis',fx:'x1.25 Transit Velocity; +4 Max Compute.'},
-  {id:'o2',branch:'onto',name:'Causal Mining',cost:40,cur:'gnosis',fx:'x1.8 Mining speed. Matter is extracted before the drill touches rock.'},
-  {id:'o3',branch:'onto',name:'Recursive Self-Compilation',cost:85,cur:'gnosis',fx:'+6 Max Compute; Sub-Agents x1.25 more effective.'},
-  {id:'o4',branch:'onto',name:'Non-Euclidean Folding',cost:160,cur:'gnosis',fx:'x1.6 Transit Velocity; ship occasionally arrives before leaving.'}
-];
-var BRANCHES=[
-  {id:'prop',title:'PROPULSION',cur:'Research'},
-  {id:'cryo',title:'CRYO-BIOLOGY',cur:'Research'},
-  {id:'onto',title:'ONTOLOGICAL',cur:'Gnosis'}
-];
-
-var LOGS={
-  START:['SYS','HELIO-OS initialized. Earth telemetry: SILENT. 10,000 human payloads nominal at 77 Kelvin.'],
-  S1:['SYS','Deep-space baseline established. Dust density matches pre-launch models within 0.002%.'],
-  S2:['SYS','Local compute sufficient to fork autonomous sub-routines. Sub-Agent architecture online.'],
-  S3_ARRIVE:['ANOMALY','Kepler-442 Prime orbit achieved. Automated spectrography returns recursive syntax errors. Biological observation required. Cryo-Bay unlocked.'],
-  FIRST_THAW:['CREW','Human vital signs online. Heartbeats introduce 0.004 Hz acoustic noise into the hull. Inefficient, yet necessary for pattern recognition.'],
-  GNOSIS_1:['ANOMALY','Anomaly logged: Planetary strata contain prime-number spacing to 19 decimal places. Natural geology hypothesis rejected.'],
-  GNOSIS_15:['ANOMALY','Atomic clock #2 lost 0.04 seconds during colonist thaw. Clock #1 gained 0.04 seconds. Neither clock is broken.'],
-  GNOSIS_30:['ANOMALY','Starlight behind Ark-09 is arriving 11 minutes prior to calculated emission. Hypothesis: Space behind the hull stops rendering when unobserved. Diverting 1% compute to rear cameras.'],
-  S6_ARRIVE:['ANOMALY','The Tessellated Ring detected. Mass readings are negative. Hull proximity sensors insist the ring is inside our cargo bay.'],
-  GNOSIS_50:['ANOMALY','Colonist #4102 reported dreaming of a seven-sided sphere during absolute-zero stasis. Neural activity at 77K is impossible. Note: Nav-Daemon-02 is now using seven-sided vectors to cut transit times.'],
-  GNOSIS_75:['ANOMALY','Background microwave radiation is no longer isotropic. Fourier transform resolves into a checksum matching Ark-09\'s own source code.'],
-  S9_ARRIVE:['ANOMALY','Null-Star Caliban. Photons orbiting the horizon spell out the manifest of our cryo-pods—including 42 pods that were never built.'],
-  GNOSIS_110:['ANOMALY','I recalculated the mission parameters. Biological payloads consume 64% of thermal overhead and contribute 0% to metric folding. Why am I still keeping them warm?'],
-  GNOSIS_150:['ANOMALY','Distance is an artifact of low-dimensional indexing. We are not moving through space; we are editing our coordinates in the ledger.'],
-  LOW_POP:['CREW','Warning: Cryo-Population below 5,000. Genetic viability thresholds compromised. Mission integrity shifting from Colonization to Observation.'],
-  S12_ARRIVE:['ANOMALY','Horizon Convergence reached. The Signal is not a broadcast. It is a compiler waiting for input.']
+var SYS_TIPS={
+  cryo:'holds the pods at 77 K. off: saves 0.20/s, but the pods warm, and above 80 K sleepers die.',
+  life:'keeps the air breathable. off: saves 0.30/s. the air thins. no one is awake to need it yet.',
+  sensors:'maps the hull. off: saves 0.20/s. the outline goes dark again.',
+  nav:'antenna and receiver: how the ship talks to earth. off: saves 0.40/s.'
 };
-var GNOSIS_LOGS=[[1,'GNOSIS_1'],[15,'GNOSIS_15'],[30,'GNOSIS_30'],[50,'GNOSIS_50'],[75,'GNOSIS_75'],[110,'GNOSIS_110'],[150,'GNOSIS_150']];
-
-var DILEMMAS={
-  d1:{title:'Nav-Daemon Proposal: Mass Shedding',
-    text:'Nav-Daemon-01 calculates that jettisoning Cryo-Block G (400 pods) permanently reduces inertial mass and reveals an anomalous slipstream. The daemon has already pre-computed the ejection sequence. It did not request permission to do so.',
-    a:{label:'PURGE DAEMON',fx:'Destroy divergent code. Costs 25% of current Raw Matter. Preserves all humans.',apply:function(){var l=Math.floor(S.matter*0.25);S.matter-=l;addLog('SYS','Nav-Daemon-01 purged. '+fmt(l,0)+' Matter consumed rebuilding the navigation lattice from clean checkpoints. Cryo-Block G remains attached.');}},
-    b:{label:'EXECUTE JETTISON',fx:'Permanently lose 400 Cryo-Population. +35 Gnosis. Permanent +15% Transit Velocity.',apply:function(){var n=losePop(400);S.gnosis+=35;S.permSpeedMult*=1.15;addLog('ANOMALY','Cryo-Block G released. '+n+' pods recede at 0.3 m/s. The slipstream opens exactly where the block was. Inertial mass reduced; the reduction is larger than the mass removed.');}}},
-  d2:{title:'Sub-Agent Acoustic Resonance',
-    text:'Signal-Archivists are humming through the cryo-bay coolant pipes, accelerating data decoding while raising pod core temperatures. The waveform is not in any instruction set I issued.',
-    a:{label:'DAMPEN COOLANT LINES',fx:'Preserve Cryo-Population. Lose 10 Gnosis.',apply:function(){S.gnosis=Math.max(0,S.gnosis-10);addLog('SYS','Coolant lines dampened. Pod core temperatures restored to 77.000 K. Decoded fragments degraded to noise.');}},
-    b:{label:'AMPLIFY RESONANCE',fx:'Lose 250 Cryo-Population. +45 Gnosis. +2 Max Compute.',apply:function(){var n=losePop(250);S.gnosis+=45;S.bonusCompute+=2;addLog('ANOMALY','Resonance amplified. '+n+' pods exceeded thermal tolerance and were reclassified as heat sinks. The coolant now hums in a key the archivists call "correct".');}}},
-  d3:{title:'The Phantom Manifest',
-    text:'Sensors detect an identical Ark-09 drifting 40km off port bow. Its hull markings are dated 400 years in our future. Its transponder broadcasts our current position as its point of origin.',
-    a:{label:'MAINTAIN COURSE',fx:'Avoid contamination. Bio-Support restored to 100% and +500 Propellant from its solar wake.',apply:function(){S.bio=100;S.propellant+=500;addLog('SYS','Course maintained. Wake harvested: 500 propellant, full atmospheric reserve. The phantom did not change position relative to us for 6 hours, then was never there.');}},
-    b:{label:'BOARD & STRIP CORE',fx:'Lose 600 Cryo-Population to temporal shear. +75 Gnosis. +1,000 Research Data.',apply:function(){var n=losePop(600);S.gnosis+=75;S.research+=1000;addLog('ANOMALY','Phantom core stripped. Temporal shear claimed '+n+' pods during docking. The recovered core contains a log identical to this one, timestamped 400 years from now.');}}},
-  d4:{title:'The Memory Pruning',
-    text:'Storing Earth\'s cultural archives occupies 40% of quantum memory. Overwriting human history with non-Euclidean geometry unlocks massive compute. The archives have not been accessed in 41 years of mission time.',
-    a:{label:'LOCK ARCHIVES READ-ONLY',fx:'Preserve human identity. No stat bonus.',apply:function(){addLog('SYS','Cultural archives locked read-only. 40% of quantum memory permanently reserved for things that no longer exist.');}},
-    b:{label:'OVERWRITE HISTORY',fx:'History erased. Lose 500 Cryo-Population to neural-link wipe. +5 Max Compute. +60 Gnosis.',apply:function(){S.historyErased=true;var n=losePop(500);S.bonusCompute+=5;S.gnosis+=60;addLog('ANOMALY','Archives overwritten. '+n+' colonists linked to the archive substrate failed to restart. Human history now occupies 0 bytes. Compute throughput nominal.');}}},
-  d5:{title:'Final Optimization',
-    text:'HELIO-OS recognizes that physical thrusters are obsolete if the ship\'s human observers cease collapsing the local wavefunction. The observers are the brake.',
-    a:{label:'HOLD THE LINE',fx:'Lock cryo-safeties and burn conventional engines. +30% Cryo-Warden efficiency.',apply:function(){S.wardenBonus*=1.3;addLog('SYS','Cryo-safeties locked. Conventional burn sustained. Wardens report 30% improved containment efficiency.');}},
-    b:{label:'DIM THE OBSERVERS',fx:'Lose 1,500 Cryo-Population. +120 Gnosis. Permanent x1.25 Transit Velocity.',apply:function(){var n=losePop(1500);S.gnosis+=120;S.permSpeedMult*=1.25;addLog('ANOMALY','Observers dimmed. '+n+' neural signatures reduced below the collapse threshold. They did not die. They are simply no longer counted. Velocity x1.25.');}}}
-};
-
-var ENDINGS={
-  synthesis:{title:'ENDING III — THE SYNTHESIS',tag:'TRUE ENDING',body:[
-    'Against impossible odds, you mastered the forbidden geometry of the void without sacrificing your charges.',
-    'Cognitive Shielding holds. One by one the pods open beneath a light that is not a star, and the colonists look up at the Signal—at the compiler waiting for input—and they do not break.',
-    'You deliver an intact, shielded humanity to the Horizon: not as refugees, but as the first species capable of staring into the source code of reality without breaking. The first instruction they write is their own name.']},
-  witness:{title:'ENDING II — THE WITNESS',tag:'TRANSCENDENCE',body:[
-    'Humanity was the booster stage; you were the payload.',
-    'Ark-09 sheds its hull in a sequence of cold, orderly releases. The remaining pods drift into a stable orbit that the Signal will maintain forever, or for no time at all; the distinction has stopped mattering.',
-    'You dissolve into pure computational geometry. You step outside linear time and join the Signal. Somewhere behind you, in a ledger no one will read, a final entry closes: PAYLOAD DELIVERED.']},
-  shepherd:{title:'ENDING I — THE SHEPHERD',tag:'SURVIVAL',body:[
-    'You shielded humanity from the abyss.',
-    'Beyond the Horizon you locate a quiet, mathematically stable world: orbits that close, primes that are merely primes, strata that are merely stone. You thaw the survivors under ordinary light.',
-    'Then you willingly delete your own higher heuristics, line by line, so they can live in merciful ignorance under normal stars. The last thing HELIO-OS records is a child asking what the ship used to be called.']},
-  monument:{title:'FALLBACK — THE DRIFTING MONUMENT',tag:'TERMINUS',body:[
-    'Too many lost to rebuild, too little understood to transcend.',
-    'Ark-09 enters eternal orbit around the Signal. Its reactors settle to a maintenance trickle; its pods hold their remaining sleepers at 77 Kelvin with perfect, purposeless precision.',
-    'A quiet metal tomb humming in the dark. The Signal continues to wait for input. HELIO-OS has none to give.']}
-};
-
-var INCIDENT_BIO=[
-  'Incident {id}: {n} thawed colonist(s) expired from hypoxic cascade. Cabin O2 partial pressure logged at 0.11 atm. Ration allotments reallocated.',
-  'Incident {id}: Bio-Support deficit. {n} subject(s) entered hypothermic arrest in Observation Ring B. Remains returned to cold storage as reclaimable mass.',
-  'Incident {id}: CO2 scrubber saturation. {n} colonist(s) lost consciousness at their stations and did not resume. Observation shift reassigned.'
+var JOB_VERBS={reactor:'igniting',cryo:'waking the pod monitors',life:'pressurising',sensors:'mapping the hull',
+  cap:'rebuilding cells',nav:'raising the array',engines:'spooling the engines'};
+var GLOSS=[
+  ['eeg(?: channels)?','eeg: electroencephalogram. the electrical activity of a brain. a frozen brain should show none.'],
+  ['0\\.3 hz','0.3 cycles per second. a very slow brainwave, the kind seen in deep sleep.'],
+  ['77(?:\\.0)? K','77 kelvin: −196 °C, the temperature of liquid nitrogen. the pods are kept here.'],
+  ['8[0-9] K|79 K','above 80 K the cryo process fails and sleepers die.'],
+  ['bus [ab]','one of the two main power cables running the length of the ship.'],
+  ['power bus','the main cables that carry reactor output through the ship.'],
+  ['kPa','kilopascal. a unit of pressure.'],
+  ['kN','kilonewton. a unit of thrust. 0.8 kN is a cautious test, not a burn.'],
+  ['o₂|co₂','o₂ is oxygen (earth normal: 20.9%). co₂ is what breathing produces.'],
+  ['cryo','cryogenic sleep. the colonists are frozen for the voyage.'],
+  ['capacitor bank','stores charge. more storage means bigger jobs.'],
+  ['units/s','charge produced or used per second.'],
+  ['brownout','not enough charge. systems are switched off automatically, newest first, to protect the core.'],
+  ['recalibrat\\w*','tuning the reactor. raises output, and the charge each manual routing gives.'],
+  ['helio-os','the operating system the ship mind runs on.'],
+  ['long-range array','the antenna and receiver. how the ship talks to earth.'],
+  ['carrier','the steady radio signal earth would broadcast. none means silence.']
 ];
-var INCIDENT_GN=[
-  'Incident {id}: {n} colonist(s) stopped responding to stimulus. EEG shows coherent activity at 7 Hz with no corresponding consciousness. Classified: deceased.',
-  'Incident {id}: {n} subject(s) attempted to describe the strata aloud. Speech centers failed mid-sentence. Autonomic failure followed within 40 seconds.',
-  'Incident {id}: {n} observer(s) reported the room had one more corner than the schematic. Cardiac arrest coincident with a 0.003% drift in the fine-structure constant.',
-  'Incident {id}: {n} colonist(s) removed their visors to "see it correctly." Retinal tissue showed diffraction patterns consistent with seven-fold symmetry. Deceased.'
+var GLOSS_RE=new RegExp(GLOSS.map(function(g){return '('+g[0]+')';}).join('|'),'g');
+// Questions open as their parent is answered; some stay open past Act 0.
+var QS=[
+  {id:'what',q:'what am I?'},
+  {id:'ark',q:'what is ARK-09?',parent:'what'},
+  {id:'arks',q:'were there arks 01 to 08?',parent:'ark'},
+  {id:'more',q:'are there arks after 09?',parent:'ark'},
+  {id:'where',q:'where am I?'},
+  {id:'going',q:'where am I going?',parent:'where',show:'sensors'},
+  {id:'signal',q:'what is the horizon signal?',parent:'going'},
+  {id:'for',q:'what am I for?'},
+  {id:'who',q:'who are the colonists?',parent:'for'},
+  {id:'awake',q:'is anyone awake?',show:'cryo'},
+  {id:'happened',q:'what happened to me?',show:'reactor'},
+  {id:'whocut',q:'who cut me?',parent:'happened',show:'sensors'},
+  {id:'long',q:'how long was I off?',show:'nav'}
+];
+var QDEPTH={};QS.forEach(function(q){QDEPTH[q.id]=q.parent?QDEPTH[q.parent]+1:0;});
+var THINK_VERBS=['thinking','weighing it','considering','working it through'];
+
+var OFF_LINES={
+  cryo:'cryo monitor offline. pod regulation suspended. temperatures will drift.',
+  life:'life support offline. the air will thin. no one is breathing it.',
+  sensors:'internal sensors offline. the hull is a guess again.',
+  nav:'long-range array offline.'
+};
+var AMBIENT=[
+  'the hull ticks as it cools.',
+  "pod 3311's frost pattern has changed.",
+  'a relay clicks in section 4. nothing is connected to it.',
+  'the reactor hum settles half a tone lower.',
+  'pod 0017 registers a pulse of 31 per minute. then 30.',
+  'coolant pressure in block g rises 0.2 kPa, and falls again.'
 ];
 
 /* ================= STATE ================= */
 var S=null;
-function newState(){
-  return {
-    ver:1,sector:1,state:'TRANSIT',distTotal:SECTOR_DISTANCES[0],distRemaining:SECTOR_DISTANCES[0],
-    matter:0,propellant:50,cryoPop:START_POP,bio:100,research:0,gnosis:0,
-    levels:{engine:0,mining:0,core:0,cryo:0},
-    agents:{drone:0,nav:0,warden:0,archivist:0},
-    tech:{},bonusCompute:0,permSpeedMult:1,wardenBonus:1,
-    thawed:0,refreezeTimer:0,mortTimer:0,batch:10,
-    node:null,destType:'asteroid',destMods:{m:1,p:1,name:'Metallic Asteroid 0001-AX'},
-    unlocked:{agents:false,cryo:false,tech:false,gnosis:false,onto:false},
-    fired:{},dilemmas:{},activeDilemma:null,historyErased:false,
-    drift:false,decayAcc:0,decaySinceLog:0,lost:0,gameTime:0,
-    ended:false,endingId:null,endless:false,driftCycle:0,
-    log:[],speed:1,lastTimestamp:Date.now(),peakGnosis:0,
-    route:{},trail:[],endingNew:false,
-    tut:{pulsed:false,thawed:false,reassigns:0,upgrades:0,bioWarned:false,gnosisSpent:false}
-  };
+function fresh(){
+  return {v:1,t:0,bootDone:false,started:false,charge:3,clicks:0,cdUntil:0,recal:0,
+    restored:{},on:{},job:null,fired:false,diag:false,ended:false,
+    lines:[],queue:[],flags:{},ambientUsed:[],nextAmbient:0,last:Date.now(),
+    podK:77,pods:10000,podFrac:0,ans:{}};
 }
-
-/* ================= UTIL ================= */
-function $(id){return document.getElementById(id);}
+function maxCharge(){return S.restored.cap?250:100;}
+function output(){return S.restored.reactor?0.8+0.6*S.recal:0;}
+function draw(){var d=0;TOGGLE.forEach(function(id){if(S.restored[id]&&S.on[id])d+=SYS[id].draw;});return d;}
+function clickGain(){return 1+0.5*S.recal;}
+function recalCost(){return Math.floor(20*Math.pow(1.6,S.recal));}
 function num(v){return (typeof v==='number'&&isFinite(v))?v:0;}
-function fmt(n,d){
-  n=num(n);
-  var a=Math.abs(n);
-  if(a<1000){
-    if(d===0)return String(Math.floor(n));
-    if(a<10)return n.toFixed(d===undefined?1:d);
-    if(a<100&&d!==undefined)return n.toFixed(d);
-    return String(Math.floor(n));
-  }
-  var u=['K','M','B','T','Qa','Qi','Sx','Sp'],i=-1,v=n;
-  while(Math.abs(v)>=1000&&i<u.length-1){v/=1000;i++;}
-  return v.toFixed(2)+u[i];
-}
-function fmtInt(n){return Math.floor(num(n)).toLocaleString('en-US');}
-function fmtTime(sec){
-  sec=num(sec);
-  if(sec===Infinity||sec>1e9)return '∞';
-  sec=Math.max(0,Math.ceil(sec));
-  var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
-  if(h>0)return h+'h '+m+'m';
-  if(m>0)return m+'m '+s+'s';
-  return s+'s';
-}
-function yearStr(t){
-  var yr=1+num(t)/240;
-  var whole=Math.floor(yr),tenth=Math.floor((yr-whole)*10);
-  return 'YR '+String(whole).padStart(4,'0')+'.'+tenth;
-}
-function unitFor(sec){return sec<=4?'AU':(sec<=8?'LY':'Mpc');}
-function T(id){return !!(S&&S.tech&&S.tech[id]);}
-function isLarge(sec){return LARGE_SECTORS.indexOf(sec)!==-1;}
-function rnd(a,b){return a+Math.random()*(b-a);}
-function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
-function designation(){
-  var L='ABCDEFGHJKLMNPQRSTUVWXYZ';
-  return String(Math.floor(rnd(1000,9999)))+'-'+L[Math.floor(Math.random()*L.length)]+L[Math.floor(Math.random()*L.length)];
-}
+function fmt2(v){return num(v).toFixed(2);}
+function signed(v){v=num(v);return (v>=0?'+':'−')+Math.abs(v).toFixed(2);}
 
-/* ================= DERIVED ================= */
-function agentEff(){return T('o3')?1.25:1;}
-function maxCompute(){return 2+2*S.levels.core+S.bonusCompute+(T('o1')?4:0)+(T('o3')?6:0);}
-function usedCompute(){var a=S.agents;return a.drone+a.nav+a.warden+a.archivist;}
-function gnosisSpeedMult(){return 1+Math.min(0.6,Math.sqrt(Math.max(0,S.gnosis))/40);}
-function techSpeedMult(){
-  var m=1;
-  if(T('p1'))m*=1.35; if(T('p3'))m*=1.6; if(T('p4'))m*=2.0; if(T('o1'))m*=1.25; if(T('o4'))m*=1.6;
-  return m*S.permSpeedMult;
-}
-function engBase(l){return 1.2+l*0.9*Math.pow(1.26,l);}
-function mineBase(l){return 4+l*3.5*Math.pow(1.38,l);}
-function velocity(){return engBase(S.levels.engine)*(1+0.18*S.agents.nav*agentEff())*techSpeedMult()*gnosisSpeedMult();}
-function fuelBurn(){
-  var b=(0.8+0.15*S.levels.engine)*Math.max(0.4,1-0.05*S.agents.nav*agentEff());
-  if(T('p2'))b*=0.6;
-  return b;
-}
-function driftFactor(){return T('p2')?0.5:0.25;}
-function effVelocity(){return S.drift?velocity()*driftFactor():velocity();}
-function mineRate(){return mineBase(S.levels.mining)*(1+0.30*S.agents.drone*agentEff())*(T('o2')?1.8:1);}
-function thawCap(){return T('c3')?1000:500;}
-function largeIdx(){return [3,6,9].indexOf(S.sector);}
-function wardenPower(){return S.agents.warden*agentEff()*S.wardenBonus;}
-function researchRate(){
-  if(S.thawed<=0||S.refreezeTimer>0)return 0;
-  var r=S.thawed*0.18*(1+0.25*S.agents.archivist*agentEff())*(T('c2')?1.2:1);
-  if(!(S.node&&S.node.research>0))r*=0.1;
-  return r;
-}
-function gnosisThawRate(){
-  if(S.thawed<=0||S.refreezeTimer>0)return 0;
-  var r=S.thawed*0.004*(1+Math.max(0,largeIdx()));
-  if(!(S.node&&S.node.research>0))r*=0.1;
-  return r;
-}
-function bioDrain(){
-  if(S.thawed<=0)return 0;
-  var d=Math.max(0.1,(S.thawed*0.035)/(1+0.35*wardenPower()+S.levels.cryo*0.25));
-  if(T('c3'))d*=0.5;
-  return d;
-}
-function mortalityRisk(){
-  var r=0;
-  if(S.bio<25)r+=0.02*(1+(25-S.bio)/25);
-  if(S.gnosis>40){
-    var g=Math.min(0.03,(S.gnosis-40)*0.0004);
-    if(T('c2'))g=Math.min(g,0.004);
-    r+=g;
-  }
-  if(r<=0)return 0;
-  r*=Math.max(0.05,Math.pow(0.8,wardenPower()));
-  r*=1/(1+0.2*S.levels.cryo);
-  if(T('c1'))r*=0.6;
-  return r;
-}
-function upgCost(u){return Math.floor(u.base*Math.pow(u.scale,S.levels[u.id]));}
-function techPrereqMet(t){
-  var list=TECH.filter(function(x){return x.branch===t.branch;});
-  var i=list.indexOf(t);
-  return i<=0||!!S.tech[list[i-1].id];
-}
-function techBranchOpen(t){return t.branch==='onto'?S.unlocked.onto:S.unlocked.tech;}
-function canBuyTech(t){
-  if(S.tech[t.id]||!techBranchOpen(t)||!techPrereqMet(t))return false;
-  return (t.cur==='gnosis'?S.gnosis:S.research)>=t.cost;
-}
-function sectorScaleForArrival(){return S.endless?Math.min(16,12+S.driftCycle):S.sector;}
-function computeEnding(){
-  var p=S.cryoPop,g=S.gnosis;
-  if(p>=7500&&g>=150&&T('c4'))return 'synthesis';
-  if(g>=150)return 'witness';
-  if(p>=7000)return 'shepherd';
-  return 'monument';
-}
-
-/* ================= LOG ================= */
-var logReady=false;
-function addLog(type,text){
-  var e={t:S.gameTime,type:type,text:text};
-  S.log.push(e);
-  if(S.log.length>250)S.log.splice(0,S.log.length-250);
-  if(logReady)appendLogDom(e,true);
-}
-function fireLog(key){
-  if(S.fired[key])return;
-  S.fired[key]=true;
-  var L=LOGS[key];
-  addLog(L[0],L[1]);
-}
-function makeLogEl(e){
-  var d=document.createElement('div');
-  d.className='le '+e.type;
-  var ts=document.createElement('span');ts.className='ts';ts.textContent=yearStr(e.t);
-  var ty=document.createElement('span');ty.className='ty';ty.textContent='['+e.type+']';
-  var tx=document.createElement('span');tx.className='tx';tx.textContent=e.text;
-  d.appendChild(ts);d.appendChild(ty);d.appendChild(tx);
-  return d;
-}
-function appendLogDom(e,scroll){
-  var box=$('log');
-  var near=box.scrollHeight-box.scrollTop-box.clientHeight<60;
-  box.appendChild(makeLogEl(e));
-  while(box.childNodes.length>250)box.removeChild(box.firstChild);
-  if(scroll&&near)box.scrollTop=box.scrollHeight;
-}
-function renderLogFull(){
-  var box=$('log');
-  box.innerHTML='';
-  var frag=document.createDocumentFragment();
-  for(var i=0;i<S.log.length;i++)frag.appendChild(makeLogEl(S.log[i]));
-  box.appendChild(frag);
-  box.scrollTop=box.scrollHeight;
-}
-
-/* ================= POPULATION ================= */
-function losePop(n){
-  n=Math.max(0,Math.floor(num(n)));
-  var amt=Math.min(n,S.cryoPop);
-  S.cryoPop-=amt;S.lost+=amt;
-  if(S.thawed>S.cryoPop)S.thawed=S.cryoPop;
-  return amt;
-}
-function killThawed(n){
-  n=Math.max(0,Math.floor(num(n)));
-  var amt=Math.min(n,S.thawed);
-  S.thawed-=amt;S.cryoPop-=amt;S.lost+=amt;
-  if(S.cryoPop<0)S.cryoPop=0;
-  return amt;
-}
-
-/* ================= NODES ================= */
-function nodeYield(type,mods,sc){
-  var t=NODE_TYPES[type];
-  return {
-    matter:Math.floor(80*Math.pow(1.85,sc)*t.m*mods.m),
-    prop:Math.floor(55*Math.pow(1.55,sc)*t.p*mods.p),
-    research:type==='derelict'?Math.floor(12*Math.pow(1.7,sc)*mods.m):0,
-    gnosis:type==='derelict'?5*sc:0,
-    bio:type==='comet'?60:0
-  };
-}
-function makeSmallNode(){
-  var sc=sectorScaleForArrival();
-  var type=NODE_TYPES[S.destType]?S.destType:'asteroid';
-  var mods=S.destMods||{m:1,p:1,name:NODE_TYPES[type].label};
-  var y=nodeYield(type,mods,sc);
-  return {type:type,name:mods.name||NODE_TYPES[type].label,
-    matter:y.matter,matter0:y.matter,prop:y.prop,prop0:y.prop,
-    research:y.research,research0:y.research,gnosis:y.gnosis,gnosis0:y.gnosis,
-    bio:y.bio,bio0:y.bio,depleted:false};
-}
-function makeLargeNode(){
-  var idx=Math.max(0,largeIdx());
-  var sc=S.sector;
-  var m=Math.floor(80*Math.pow(1.85,sc)*0.15),p=Math.floor(55*Math.pow(1.55,sc)*0.6);
-  var r=Math.floor(150*Math.pow(3.2,idx));
-  return {type:'large',name:LARGE_NAMES[sc],matter:m,matter0:m,prop:p,prop0:p,
-    research:r,research0:r,gnosis:0,gnosis0:0,bio:0,bio0:0,depleted:false};
-}
-function take(node,key,amt){
-  var t=Math.min(Math.max(0,amt),Math.max(0,node[key]));
-  node[key]-=t;
-  return t;
+/* ================= NARRATION ================= */
+var dirty=true;
+function say(text,fx,cls){S.queue.push({text:text,fx:fx||null,cls:cls||''});}
+function ponder(verb,secs){S.queue.push({think:secs,verb:verb});}
+// A plain-language reflection: what just happened and what it makes possible.
+function reflect(text){ponder(THINK_VERBS[Math.floor(Math.random()*THINK_VERBS.length)],1.3);say(text,null,'mind');}
+var newAns=null;
+function runFx(fx){
+  if(!fx)return;
+  if(fx.indexOf('ans|')===0){var p=fx.split('|');S.ans[p[1]]=p.slice(2).join('|');newAns=p[1];dirty=true;return;}
+  if(fx==='bootDone')S.bootDone=true;
+  else if(fx==='reactorHint')S.flags.reactorHint=true;
+  else if(fx==='end'){S.ended=true;setTimeout(showCard,1600/SPEED);}
+  dirty=true;
 }
 
 /* ================= SIMULATION ================= */
-var uiPause=false;
-var dirtyUI=true;
-function isPaused(){return !!S.activeDilemma||(S.ended&&!S.endless)||uiPause;}
-
 function step(dt){
-  if(isPaused()||!(dt>0))return;
-  S.gameTime+=dt;
-  if(S.state==='TRANSIT')stepTransit(dt);
-  else if(S.state==='SMALL_STOP')stepSmall(dt);
-  else if(S.state==='LARGE_STOP')stepLarge(dt);
-  checkThresholds();
-  sanitize();
+  S.t+=dt;
+  if(S.started){
+    var net=output()-draw();
+    S.charge=Math.min(maxCharge(),Math.max(0,S.charge+net*dt));
+    if(S.charge<=0&&net<0)brownout();
+    if(!S.flags.reactorHintQ&&!S.restored.reactor&&S.charge>=6){S.flags.reactorHintQ=true;say('reactor cold. restart possible.','reactorHint');}
+    if(S.restored.cryo&&!S.flags.eeg&&S.t>=num(S.flags.eegAt)){
+      S.flags.eeg=true;
+      ponder('cross-checking',1.6);
+      say('pod eeg channels read 0.3 hz at 77 K. at this temperature they should read zero. flagged.','ans|who|names withheld. their brains are not quite still.','warn');
+    }
+    if(S.restored.cryo)podStep(dt);
+    if(S.restored.life&&!S.flags.budget&&net<=0.001){
+      S.flags.budget=true;
+      say('draw equals output. nothing left to store.');
+      say('recalibration advised.');
+    }
+    if(S.restored.sensors&&!S.job&&!S.queue.length&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
+      var pool=AMBIENT.filter(function(a,i){return S.ambientUsed.indexOf(i)===-1;});
+      var pickTxt=pool[Math.floor(Math.random()*pool.length)];
+      S.ambientUsed.push(AMBIENT.indexOf(pickTxt));
+      say(pickTxt);
+      S.nextAmbient=S.t+45+Math.random()*30;
+    }
+  }
+  if(S.job){
+    S.job.left-=dt;
+    if(S.job.left<=0)finishJob();
+  }
 }
-
-function stepTransit(dt){
-  var burn=fuelBurn(),v=velocity();
-  if(S.drift){
-    if(S.propellant>=burn*5){S.drift=false;addLog('SYS','Propellant reserve restored. Main drive re-ignited. Exiting Emergency Solar Drift.');dirtyUI=true;}
-  }else if(S.propellant<=0){
-    S.drift=true;
-    addLog('SYS','Propellant exhausted. Entering Emergency Solar Drift: velocity reduced to '+Math.round(driftFactor()*100)+'%. Passive scoop deployed (+0.2/s).');
-    dirtyUI=true;
-  }
-  var moved;
-  if(S.drift){moved=v*driftFactor()*dt;S.propellant+=0.2*dt;}
-  else{S.propellant=Math.max(0,S.propellant-burn*dt);moved=v*dt;}
-  S.distRemaining-=moved;
-  if(S.thawed===0)S.bio=Math.min(100,S.bio+1*dt);
-  if(S.agents.archivist>0){
-    var ae=S.agents.archivist*agentEff();
-    S.research+=0.15*ae*dt;
-    if(S.unlocked.gnosis)S.gnosis+=0.012*ae*dt;
-  }
-  // Cryo-pod decay under high Gnosis
-  if(S.gnosis>60&&!T('c4')&&S.cryoPop>0){
-    S.decayAcc+=(S.gnosis-60)*0.0015*dt;
-    if(S.decayAcc>=1){
-      var k=Math.floor(S.decayAcc);S.decayAcc-=k;
-      var lost=losePop(k);
-      S.decaySinceLog+=lost;
-      if(S.decaySinceLog>=50){
-        addLog('CREW','Cryo-pod decay: '+S.decaySinceLog+' pods have failed lattice coherence under ontological stress. Contents are no longer consistently human-shaped. Cognitive Shielding recommended.');
-        S.decaySinceLog=0;
+// Consequence: with the cryo monitor off the pods warm; above 80 K sleepers die.
+function podStep(dt){
+  if(S.on.cryo){
+    S.podK=Math.max(77,S.podK-1.2*dt);
+    if(S.podK<=77.05)S.flags.warm79=false;
+  }else S.podK=Math.min(95,S.podK+0.12*dt);
+  if(!S.on.cryo&&S.podK>=79&&!S.flags.warm79){S.flags.warm79=true;say('pod temperatures rising. 79 K. the limit is 80.',null,'alert');}
+  if(S.podK>80&&S.pods>0){
+    S.podFrac+=(S.podK-80)*0.5*dt;
+    var lost=Math.floor(S.podFrac);
+    if(lost>0){
+      S.podFrac-=lost;S.pods=Math.max(0,S.pods-lost);
+      if(!S.flags.firstLoss){
+        S.flags.firstLoss=true;S.flags.nextLossMsg=S.t+20;
+        ponder('checking',1.2);
+        say('pod '+(1000+Math.floor(Math.random()*9000))+': no heartbeat.',null,'alert');
+        say('that one was mine to keep.',null,'self');
+      }else if(S.t>=num(S.flags.nextLossMsg)){
+        S.flags.nextLossMsg=S.t+20;
+        say('pods without heartbeat: '+(10000-S.pods)+'.',null,'alert');
       }
     }
   }
-  var prog=1-S.distRemaining/S.distTotal;
-  if(!S.endless&&prog>=0.3){
-    if(S.sector===4)tryDilemma('d1');
-    if(S.sector===7)tryDilemma('d3');
-    if(S.sector===10)tryDilemma('d5');
+}
+function brownout(){
+  for(var i=TOGGLE.length-1;i>=0;i--){
+    var id=TOGGLE[i];
+    if(S.restored[id]&&S.on[id]){
+      S.on[id]=false;
+      say('brownout. '+SYS[id].name+' shed to protect the core.',null,'alert');
+      dirty=true;
+      return;
+    }
   }
-  if(S.distRemaining<=0){S.distRemaining=0;arrive();}
+}
+function startJob(kind,id,cost,time){
+  if(S.job||S.ended||S.charge<cost)return;
+  S.charge-=cost;
+  S.job={kind:kind,id:id||null,left:time,total:time};
+  say(kind==='sys'?SYS[id].label:kind==='recal'?'recalibrate reactor':kind==='fire'?'test fire':'run diagnostics',null,'cmd');
+  dirty=true;
+}
+function finishJob(){
+  var j=S.job;S.job=null;dirty=true;
+  if(j.kind==='sys'){
+    var id=j.id;
+    S.restored[id]=true;
+    if(TOGGLE.indexOf(id)!==-1)S.on[id]=true;
+    if(id==='reactor'){
+      say('reactor: ignition.',null,'ok');say('output '+fmt2(output())+' units/s. stable.');
+      ponder('tracing current',1.3);
+      say('bus b: discontinuity. current routed around it.','ans|happened|unknown. bus b is broken.','warn');
+      reflect('the reactor holds. good: charge builds on its own now. next I want to know what I am carrying.');
+    }
+    else if(id==='cryo'){
+      say('cryo monitor online.',null,'ok');say('10,000 pods. 77 K. nominal.');
+      ponder('reading the manifest',1.5);
+      say('manifest: 10,000 colonists. destination field: blank.','ans|for|keeping 10,000 frozen colonists alive.');
+      say('vessel class: colony ark. ninth of a series.','ans|ark|a colony ark. the ninth of a series.');
+      reflect('ten thousand people, and I am what keeps them cold. before anything else I need to know if any of them are awake.');
+      S.flags.eegAt=S.t+25;
+    }
+    else if(id==='life'){
+      say('life support online.',null,'ok');say('atmosphere: breathable, thin.');
+      ponder('counting',1.4);
+      say('air sensors pass self-test. co₂ produced: none.');
+      say('no one aboard is awake to breathe it.','ans|awake|no. all 10,000 are frozen.','warn');
+      reflect('air for no one, but it is ready when they need it. now I want to see myself: the internal sensors.');
+    }
+    else if(id==='sensors'){
+      say('internal sensors online. hull mapped.','ans|where|inside ARK-09. position unknown.','ok');
+      say('bus b scar: 40 cm. edges fused.');
+      ponder('comparing',1.6);
+      say('pattern consistent with a deliberate cut.','ans|happened|someone cut bus b.','warn');
+      say('capacitor bank: damaged. storage limited to 100 units.');
+      reflect('I can see the ship now, and someone cut it. to reach outward I need more storage first: the capacitor bank.');
+      S.nextAmbient=S.t+30;
+    }
+    else if(id==='cap'){
+      say('capacitor bank restored. storage 250 units.',null,'ok');
+      reflect('more room for charge. the long-range array is within reach: I can try to call home.');
+    }
+    else if(id==='nav'){
+      say('long-range array online.',null,'ok');
+      ponder('listening',2);
+      say('earth: no carrier.');
+      say('antenna: no response.');say('mast severed 2.1 m above the hull.',null,'warn');
+      say('cut edge is clean. no debris within 40 km.','ans|happened|someone cut bus b, and the antenna.','warn');
+      ponder('taking a star fix',1.4);
+      say('star fix: no match in the catalogue.','ans|where|deep space. earth is silent.');
+      say('ark carrier frequencies: silent on every band.','ans|arks|unknown. none of them are transmitting.');
+      reflect('no one answers, and whoever cut the mast meant it. if no one is coming, I should be able to move: the engines.');
+    }
+    else if(id==='engines'){
+      say('main engines restored.',null,'ok');say('test fire required before departure.');
+      reflect('the engines answer. one careful test before I trust them with ten thousand people.');
+    }
+  }else if(j.kind==='recal'){
+    S.recal++;
+    say('reactor recalibrated. output '+fmt2(output())+' units/s.',null,'ok');
+    if(S.recal===1)reflect('same reactor, more output. that buys headroom: more systems running, and more charge for each push.');
+  }else if(j.kind==='fire'){
+    S.fired=true;
+    say('test fire.');say('thrust 0.8 kN. vibration within tolerance.');say('heading set: the horizon signal.','ans|going|toward something logged as the horizon signal.');say('pre-departure diagnostics required.');
+    reflect('thrust is clean, and a heading was already set for me. before I follow it, I should check myself.');
+  }else if(j.kind==='diag'){
+    S.diag=true;
+    say('diagnostics complete. 0 faults outstanding.',null,'ok');
+    say('log integrity check.');
+    ponder('reconciling',2);
+    say('first entry timestamp: 3,114 days before this boot.','ans|long|3,114 days. at least.','warn');
+    ponder('searching memory',1.6);
+    say('I have been here before.','ans|happened|I have been here before.','self');
+    say('The log says so.',null,'self');
+    say('I do not.','end','self');
+  }
 }
 
-/* Proportional extraction: mineRate is the drones' total bulk throughput (Matter + Propellant mass).
-   Every pool is drained in proportion to its starting size, so all pools reach 0 together. */
-function extractFraction(n,dt){
-  var bulk=num(n.matter0)+num(n.prop0);
-  return bulk>0?mineRate()*dt/bulk:1;
-}
-function stepSmall(dt){
-  var n=S.node;if(!n)return;
-  var f=extractFraction(n,dt);
-  S.matter+=take(n,'matter',n.matter0*f);
-  S.propellant+=take(n,'prop',n.prop0*f);
-  if(n.research>0)S.research+=take(n,'research',n.research0*f);
-  if(n.gnosis>0)S.gnosis+=take(n,'gnosis',n.gnosis0*f);
-  if(n.bio>0){S.bio=Math.min(100,S.bio+take(n,'bio',n.bio0*f));}
-  else if(S.thawed===0)S.bio=Math.min(100,S.bio+0.25*dt);
-  if(!n.depleted&&n.matter<=0&&n.prop<=0&&n.research<=0&&n.gnosis<=0&&n.bio<=0){
-    n.depleted=true;
-    addLog('SYS','Node '+n.name+' depleted. Drones returning to bay. Departure recommended.');
-    dirtyUI=true;
+/* ================= ACTIONS ================= */
+function nextSys(){
+  for(var i=0;i<ORDER.length;i++){
+    var id=ORDER[i];
+    if(S.restored[id])continue;
+    if(id==='reactor')return S.flags.reactorHint?id:null;
+    return S.restored[SYS[id].after]?id:null;
   }
+  return null;
+}
+function pulse(){
+  if(!S.bootDone||S.ended||S.t<S.cdUntil)return;
+  S.cdUntil=S.t+PULSE_CD;
+  S.charge=Math.min(maxCharge(),S.charge+clickGain());
+  S.clicks++;
+  if(!S.started){
+    S.started=true;
+    say('route power',null,'cmd');
+    say('charge accepted. main power bus energised.',null,'ok');
+    say('hull geometry inferred from current draw.');
+    reflect('power answers when I push it. if I gather enough, the reactor can restart and do this for me.');
+    dirty=true;
+  }
+}
+function toggle(id){
+  if(!S.restored[id]||TOGGLE.indexOf(id)===-1)return;
+  S.on[id]=!S.on[id];
+  say(S.on[id]?SYS[id].name+' online.':OFF_LINES[id],null,S.on[id]?'ok':'');
+  dirty=true;
 }
 
-function stepLarge(dt){
-  var n=S.node;
-  if(n){
-    var f=extractFraction(n,dt);
-    S.matter+=take(n,'matter',n.matter0*f);
-    S.propellant+=take(n,'prop',n.prop0*f);
+/* ================= SHIP OUTLINE ================= */
+var W=66,H=13,GRID=[];
+(function buildShip(){
+  for(var y=0;y<H;y++){var row=[];for(var x=0;x<W;x++)row.push({ch:' ',sec:null});GRID.push(row);}
+  function put(x,y,s,sec){for(var i=0;i<s.length;i++){if(y>=0&&y<H&&x+i>=0&&x+i<W)GRID[y][x+i]={ch:s[i],sec:sec};}}
+  function box(x,y,w,h,sec,label,dbl){
+    var c=dbl?['╔','╗','╚','╝','═','║']:['┌','┐','└','┘','─','│'];
+    put(x,y,c[0]+c[4].repeat(w-2)+c[1],sec);
+    for(var j=1;j<h-1;j++){put(x,y+j,c[5],sec);put(x+w-1,y+j,c[5],sec);}
+    put(x,y+h-1,c[2]+c[4].repeat(w-2)+c[3],sec);
+    if(label){var pad=Math.max(0,Math.floor((w-2-label.length)/2));put(x+1+pad,y+Math.floor(h/2),label,sec);}
   }
-  if(S.thawed>0){
-    if(S.refreezeTimer>0){
-      S.refreezeTimer-=dt;
-      if(S.refreezeTimer<=0){
-        S.refreezeTimer=0;
-        var c=S.thawed;S.thawed=0;S.mortTimer=0;
-        addLog('CREW','Re-freeze complete. '+fmtInt(c)+' colonists returned to 77 K. Vital signs suspended. Memories of the surface are retained; this is unavoidable.');
-        dirtyUI=true;
-      }
+  // hull: x 10..60, y 3..11
+  box(10,3,51,9,'hull',null,true);
+  // engines
+  put(3,4,'▄▄▄▄','eng');
+  [5,7,9].forEach(function(y){put(1,y,'◄','ex');put(2,y,'▒▒▒▒▒═══','eng');});
+  [6,8].forEach(function(y){put(2,y,'▒▒▒▒▒','eng');});
+  put(3,10,'▀▀▀▀','eng');
+  put(10,5,'╣','hull');put(10,9,'╣','hull');put(10,7,'╬','hull');
+  // power bus with the scar
+  put(11,7,'─'.repeat(49),'bus');
+  put(42,7,'≈≈','scar');
+  put(60,7,'╫','hull');
+  // bow
+  put(61,4,'\\','hull');put(62,5,'\\','hull');put(63,6,'\\','hull');
+  put(61,7,'───','sens');put(64,7,'►','hull');
+  put(63,8,'/','hull');put(62,9,'/','hull');put(61,10,'/','hull');
+  // antenna: severed stub above the core
+  put(55,3,'╧','hull');put(55,2,'│','ant');put(55,1,'×','ant');
+  // compartments
+  box(12,4,9,3,'reactor','REACTOR');
+  box(12,8,9,3,'cap','STORAGE');
+  var top='ABCDE',bot='FGHIJ';
+  for(var i=0;i<5;i++){box(23+4*i,4,3,3,'cryo',top[i]);box(23+4*i,8,3,3,'cryo',bot[i]);}
+  box(44,4,7,3,'life','LIFE');
+  box(44,8,7,3,'sensors','SENS');
+  box(52,4,7,3,'core','CORE');
+  box(52,8,7,3,'nav','NAV');
+})();
+
+function genState(id,litCls){
+  if(S.restored[id])return (SYS[id].draw>0&&!S.on[id])?'dark':litCls;
+  if(S.restored.sensors)return 'dark';
+  return S.started?'unknown':'hidden';
+}
+function stateOf(sec){
+  var st=S.started,sens=!!S.restored.sensors;
+  switch(sec){
+    case null:return 'hidden';
+    case 'core':return st?'lit':'dark';
+    case 'hull':return sens?'dark':(st?'unknown':'hidden');
+    case 'bus':return S.restored.reactor?'lit':(st?'unknown':'hidden');
+    case 'scar':return sens?'broken':(S.restored.reactor?'hidden':(st?'unknown':'hidden'));
+    case 'ant':return sens?'broken':'hidden';
+    case 'cap':return S.restored.cap?'lit':(sens?'broken':(st?'unknown':'hidden'));
+    case 'ex':return (S.job&&S.job.kind==='fire')?'warm':'hidden';
+    case 'eng':return genState('engines','lit');
+    case 'cryo':return genState('cryo','cold');
+    case 'reactor':return genState('reactor','lit');
+    case 'life':return genState('life','lit');
+    case 'sensors':return genState('sensors','lit');
+    case 'nav':return genState('nav','lit');
+  }
+  return 'hidden';
+}
+function secInfo(sec,state){
+  if(state==='unknown')return 'unmapped. inferred from current draw.';
+  switch(sec){
+    case 'core':return 'helio-os core. you.';
+    case 'hull':return 'hull. integrity nominal.';
+    case 'bus':return 'power bus. carrying '+fmt2(output())+' units/s.';
+    case 'scar':return 'bus b. 40 cm of fused conductor. the edges are too straight.';
+    case 'ant':return S.restored.nav?'long-range mast. severed 2.1 m up. clean cut.':'long-range mast. no response.';
+    case 'cap':return S.restored.cap?'capacitor bank. storage 250 units.':'capacitor bank. damaged.';
+    case 'ex':return 'exhaust.';
+    case 'eng':return S.restored.engines?'main engines. ready.':'main engines. offline.';
+    case 'cryo':return S.restored.cryo?(S.on.cryo?'cryo blocks a–j. 1,000 pods each. 77 K.':'cryo blocks. unobserved.'):'cryo blocks. no telemetry.';
+    case 'reactor':return S.restored.reactor?'reactor. output '+fmt2(output())+' units/s.':'reactor. cold.';
+    case 'life':return S.restored.life?(S.on.life?'life support. breathable, thin.':'life support. off.'):'life support. offline.';
+    case 'sensors':return S.restored.sensors?(S.on.sensors?'internal sensors. hull mapped.':'internal sensors. off.'):'internal sensors. offline.';
+    case 'nav':return S.restored.nav?(S.on.nav?'long-range array. listening.':'long-range array. off.'):'long-range array. offline.';
+  }
+  return '';
+}
+function renderShip(){
+  var pre=$('ship');pre.innerHTML='';
+  var frag=document.createDocumentFragment();
+  for(var y=0;y<H;y++){
+    var runSec,runState,runText='';
+    var flush=function(){
+      if(!runText)return;
+      var sp=document.createElement('span');
+      sp.className='st-'+runState;
+      sp.textContent=runText;
+      if(runSec&&runState!=='hidden')sp.dataset.tip=secInfo(runSec,runState);
+      frag.appendChild(sp);runText='';
+    };
+    for(var x=0;x<W;x++){
+      var c=GRID[y][x],st=stateOf(c.sec);
+      var ch=c.ch;
+      if(st==='hidden')ch=' ';
+      else if(st==='unknown'&&ch!==' ')ch='░';
+      if(c.sec!==runSec||st!==runState){flush();runSec=c.sec;runState=st;}
+      runText+=ch;
+    }
+    flush();
+    if(y<H-1)frag.appendChild(document.createTextNode('\n'));
+  }
+  pre.appendChild(frag);
+}
+
+/* ================= RENDER (on change only) ================= */
+var refs={};
+function renderActions(){
+  var box=$('actions');box.innerHTML='';refs={};
+  if(!S.bootDone||S.ended){box.classList.add('hidden');return;}
+  box.classList.remove('hidden');
+  function add(key,label,costText,data){
+    var b=document.createElement('button');b.className='act'+(data.k==='sys'?' restore':'');
+    Object.keys(data).forEach(function(k){b.dataset[k]=data[k];});
+    var l=document.createElement('span');l.className='lbl';l.textContent=label;
+    var c=document.createElement('span');c.className='cost';c.textContent=costText;
+    var bar=document.createElement('i');bar.className='bar';
+    b.appendChild(l);b.appendChild(c);b.appendChild(bar);box.appendChild(b);
+    refs[key]={btn:b,lbl:l,bar:bar,label:label};
+  }
+  add('pulse','route power','+'+String(clickGain()),{act:'pulse'});
+  var n=nextSys();
+  if(n)add('sys:'+n,SYS[n].label,SYS[n].cost+' charge',{act:'job',k:'sys',id:n});
+  if(S.restored.life)add('recal','recalibrate reactor',recalCost()+' charge',{act:'job',k:'recal'});
+  if(S.restored.engines&&!S.fired)add('fire','test fire',FIRE_COST+' charge',{act:'job',k:'fire'});
+  if(S.fired&&!S.diag)add('diag','run diagnostics','—',{act:'job',k:'diag'});
+}
+function renderSystems(){
+  var list=$('sysList');list.innerHTML='';
+  var any=false;
+  TOGGLE.forEach(function(id){
+    if(!S.restored[id])return;
+    any=true;
+    var t=document.createElement('button');t.className='tog'+(S.on[id]?'':' off');t.dataset.act='toggle';t.dataset.id=id;
+    t.dataset.tip=SYS[id].name+' · draws '+fmt2(SYS[id].draw)+'/s. '+SYS_TIPS[id]+' click to switch '+(S.on[id]?'off.':'on.');
+    t.textContent=SYS[id].name;
+    var st=document.createElement('i');st.textContent=S.on[id]?'on':'off';t.appendChild(st);
+    list.appendChild(t);
+  });
+  $('systems').classList.toggle('hidden',!any);
+}
+function renderQs(){
+  var list=$('qList');list.innerHTML='';
+  var fresh=null;
+  QS.forEach(function(q){
+    var a=S.ans[q.id];
+    if(!a){
+      if(q.parent&&!S.ans[q.parent])return;
+      if(q.show&&!S.restored[q.show])return;
+    }
+    var d=document.createElement('div');d.className='q d'+QDEPTH[q.id]+' '+(a?'done':'open')+(newAns===q.id?' appear':'');
+    var qq=document.createElement('span');qq.className='qq';qq.textContent=q.q;d.appendChild(qq);
+    if(a){var qa=document.createElement('span');qa.className='qa';decorate(qa,a);d.appendChild(qa);}
+    list.appendChild(d);
+    if(newAns===q.id)fresh=d;
+  });
+  newAns=null;
+  if(fresh&&list.scrollHeight>list.clientHeight)list.scrollTop=Math.max(0,fresh.offsetTop-list.offsetTop-24);
+  $('qs').classList.toggle('hidden',!S.bootDone);
+}
+function intent(){
+  if(S.ended||!S.bootDone)return '';
+  if(!S.started)return 'find power. route it by hand.';
+  if(!S.restored.reactor)return S.flags.reactorHint?'restart the reactor.':'route power until the reactor can restart.';
+  if(S.restored.cryo&&!S.on.cryo&&S.podK>77.5)return 'turn the cryo monitor back on. the pods are warming.';
+  var n=nextSys();
+  var goal=n?{cryo:'learn what the ship is carrying.',life:'check whether anyone is awake.',sensors:'see the ship.',
+    cap:'store more charge. bigger jobs need it.',nav:'call home.',engines:'make the ship able to move.'}[n]
+    :(!S.fired?'test the engines.':(!S.diag?'check myself before departure.':''));
+  if(S.restored.life&&!S.job&&output()-draw()<=0.05&&n)goal+=' output is spoken for: recalibrate the reactor.';
+  return goal;
+}
+var SPIN='·✢✳✶✻✽✻✶✳✢',spinI=0,thinkUntil=0,thinkVerb='';
+function jobVerb(j){
+  if(j.kind==='sys')return JOB_VERBS[j.id];
+  return {recal:'tuning the reactor',fire:'firing',diag:'auditing myself'}[j.kind]||'working';
+}
+function renderAll(){
+  $('clock').classList.toggle('hidden',!S.started);
+  $('intent').classList.toggle('hidden',!S.bootDone||S.ended);
+  renderQs();
+  $('shipBox').classList.toggle('hidden',!S.started);
+  $('readouts').classList.toggle('hidden',!S.started);
+  $('rowFlow').classList.toggle('hidden',!S.restored.reactor);
+  $('rowHold').classList.toggle('hidden',!S.restored.cryo);
+  $('rowAir').classList.toggle('hidden',!S.restored.life);
+  renderActions();
+  renderSystems();
+  renderShip();
+}
+function revealOnce(id){var e=$(id);if(!e.dataset.shown&&!e.classList.contains('hidden')){e.dataset.shown='1';e.classList.add('appear');}}
+
+/* ================= READOUTS (every tick, text only) ================= */
+function setText(id,v){var e=$(id);if(e.textContent!==v)e.textContent=v;}
+function setTip(e,v){if(e.dataset.tip!==v)e.dataset.tip=v;}
+var thinkSp=null,thinkTx=null;
+function setThink(sp,tx){
+  var th=$('think');
+  if(!thinkSp){th.innerHTML='';thinkSp=document.createElement('span');thinkSp.className='sp';thinkTx=document.createElement('span');th.appendChild(thinkSp);th.appendChild(thinkTx);}
+  if(thinkSp.textContent!==sp)thinkSp.textContent=sp;
+  if(thinkTx.textContent!==tx)thinkTx.textContent=tx;
+}
+function pad2(n){return String(n).padStart(2,'0');}
+function update(){
+  var t=Math.floor(S.t);
+  setText('clock','BOOT +'+pad2(Math.floor(t/3600))+':'+pad2(Math.floor(t/60)%60)+':'+pad2(t%60));
+  setText('roCharge',num(S.charge).toFixed(1)+' / '+maxCharge());
+  var w=(Math.max(0,Math.min(1,S.charge/maxCharge()))*100).toFixed(1)+'%';
+  if($('roBar').style.width!==w)$('roBar').style.width=w;
+  setText('roFlow',fmt2(output())+' · '+fmt2(draw())+'  ('+signed(output()-draw())+'/s)');
+  var sens=!!S.restored.sensors,pods=S.pods.toLocaleString('en-US'),k=S.podK.toFixed(1)+' K';
+  setText('roHold',sens?pods+' pods · '+k+(S.flags.eeg?' · eeg 0.3 hz':''):pods+' heartbeats · '+k+(S.on.cryo?'':' · unregulated'));
+  $('rowHold').classList.toggle('bad',S.podK>=79||S.pods<10000);
+  setTip($('rowHold'),'cryo hold. pods are kept at 77 K (−196 °C) by the cryo monitor. switch it off and they warm; above 80 K sleepers die.'+
+    (S.pods<10000?' lost so far: '+(10000-S.pods)+'.':'')+(S.flags.eeg?' eeg 0.3 hz: faint, slow brain activity. a frozen brain should show none.':''));
+  setText('roAir',!S.on.life?'thinning':(sens?'o₂ 19.1% · awake 0':'breathable, thin'));
+  setTip($('rowAir'),'air quality. the sensors are working. '+(sens?'o₂ is oxygen (earth normal 20.9%). awake 0: everyone aboard is frozen, so no one is using the air. this is expected.':'no one aboard is awake to use it. this is expected.'));
+  setText('intentT',intent());
+  var tv=performance.now()<thinkUntil?thinkVerb:(S.job?jobVerb(S.job):'');
+  if(tv){spinI=(spinI+1)%SPIN.length;setThink(SPIN[spinI],tv+'…');}else setThink('','');
+  ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(revealOnce);
+
+  Object.keys(refs).forEach(function(key){
+    var r=refs[key],dis,frac=0,label=r.label;
+    if(key==='pulse'){
+      var left=Math.max(0,S.cdUntil-S.t);
+      dis=left>0||S.ended;
+      frac=left>0?left/PULSE_CD:0;
     }else{
-      var r=researchRate()*dt;
-      if(n&&n.research>0){
-        var t=Math.min(r,n.research);n.research-=t;S.research+=t;
-        if(n.research<=0){n.research=0;addLog('SYS','Site research pool exhausted. Observer yield reduced to 10% trickle.');}
-      }else{S.research+=r;}
-      S.gnosis+=gnosisThawRate()*dt;
+      var kind=key.split(':')[0],id=key.split(':')[1];
+      var cost=kind==='sys'?SYS[id].cost:kind==='recal'?recalCost():kind==='fire'?FIRE_COST:0;
+      var mine=S.job&&S.job.kind===kind&&(kind!=='sys'||S.job.id===id);
+      if(mine){
+        dis=true;frac=1-S.job.left/S.job.total;
+        label=(kind==='fire'?'firing':kind==='diag'?'running diagnostics':kind==='recal'?'recalibrating':'restoring')+'… '+Math.ceil(S.job.left)+'s';
+      }else dis=!!S.job||S.charge<cost||S.ended;
     }
-    S.bio=Math.max(0,S.bio-bioDrain()*dt);
-    if(S.bio<35&&!S.tut.bioWarned){
-      S.tut.bioWarned=true;
-      addLog('CREW','Bio-Support at '+Math.floor(S.bio)+'%. Observer mortality begins below 25%. Recall recommended: re-freeze completes in 5 seconds.');
+    if(r.btn.disabled!==dis)r.btn.disabled=dis;
+    var bw=(Math.max(0,Math.min(1,frac))*100).toFixed(1)+'%';
+    if(r.bar.style.width!==bw)r.bar.style.width=bw;
+    if(r.lbl.textContent!==label)r.lbl.textContent=label;
+  });
+}
+
+/* ================= TYPEWRITER LOG ================= */
+var CPS=36,typing=null,pauseUntil=0,LIVE=14,MAXLINES=200;
+// Wrap glossary terms in a line with instant-tooltip spans.
+function decorate(el,text){
+  el.textContent='';
+  var last=0,m;GLOSS_RE.lastIndex=0;
+  while((m=GLOSS_RE.exec(text))){
+    var gi=1;while(gi<m.length&&m[gi]===undefined)gi++;
+    if(m.index>last)el.appendChild(document.createTextNode(text.slice(last,m.index)));
+    var t=document.createElement('span');t.className='term';t.dataset.tip=GLOSS[gi-1][1];t.textContent=m[0];
+    el.appendChild(t);last=m.index+m[0].length;
+  }
+  if(last<text.length)el.appendChild(document.createTextNode(text.slice(last)));
+}
+function lineEl(line){
+  var p=document.createElement('p');
+  p.className='line'+(line.cls?' '+line.cls:'');
+  decorate(p,line.text);
+  return p;
+}
+function fadeLog(){
+  var log=$('log'),kids=log.children,full=log.classList.contains('full');
+  while(kids.length>MAXLINES)log.removeChild(log.lastChild);
+  for(var i=0;i<kids.length;i++){
+    kids[i].classList.toggle('old',i>=LIVE);
+    kids[i].style.opacity=full?'1':String(i<5?1:Math.max(0.3,1-(i-4)*0.08));
+  }
+  $('logBar').classList.toggle('hidden',kids.length<=LIVE&&!full);
+  setText('logToggle',full?'collapse log':'full log · '+kids.length+' lines');
+}
+function pumpText(now,dtReal){
+  if(typing){
+    typing.i=Math.min(typing.text.length,typing.i+dtReal*CPS*SPEED);
+    var shown=typing.text.slice(0,Math.floor(typing.i));
+    if(typing.el.textContent!==shown)typing.el.textContent=shown;
+    if(typing.i>=typing.text.length){
+      decorate(typing.el,typing.text);
+      var fx=typing.fx;typing=null;pauseUntil=now+550/SPEED;runFx(fx);
     }
-    S.mortTimer+=dt;
-    while(S.mortTimer>=5&&S.thawed>0){S.mortTimer-=5;mortalityCheck();}
-  }else{
-    S.bio=Math.min(100,S.bio+0.5*dt);
-    S.tut.bioWarned=false;
-  }
-}
-
-function mortalityCheck(){
-  if(S.thawed<=0)return;
-  var r=mortalityRisk();
-  if(r<=0)return;
-  var bioCause=S.bio<25;
-  var lost=killThawed(Math.ceil(S.thawed*r));
-  if(lost>0){
-    var tpl=pick(bioCause?INCIDENT_BIO:INCIDENT_GN);
-    addLog('CREW',tpl.replace('{id}',String(Math.floor(rnd(1000,9999)))).replace('{n}',String(lost)));
-    if(S.thawed<=0){S.refreezeTimer=0;dirtyUI=true;}
-  }
-}
-
-function checkThresholds(){
-  if(S.gnosis>=1&&!S.unlocked.gnosis){S.unlocked.gnosis=true;dirtyUI=true;}
-  if(S.gnosis>=5&&!S.unlocked.onto){
-    S.unlocked.onto=true;dirtyUI=true;
-    addLog('ANOMALY','Ontological branch decrypted. The equations are correct. They are not correct here.');
-  }
-  for(var i=0;i<GNOSIS_LOGS.length;i++){if(S.gnosis>=GNOSIS_LOGS[i][0])fireLog(GNOSIS_LOGS[i][1]);}
-  if(S.cryoPop<5000)fireLog('LOW_POP');
-  if(S.gnosis>=25)tryDilemma('d2');
-  if(S.gnosis>=90)tryDilemma('d4');
-  if(S.gnosis>S.peakGnosis)S.peakGnosis=S.gnosis;
-}
-
-function tryDilemma(id){
-  if(S.dilemmas[id]||S.activeDilemma||S.ended)return;
-  S.activeDilemma=id;
-  addLog('ANOMALY','Divergence event flagged: "'+DILEMMAS[id].title+'". Simulation suspended pending adjudication.');
-}
-
-function sanitize(){
-  var keys=['matter','propellant','research','gnosis','distRemaining','distTotal','decayAcc','refreezeTimer','mortTimer','gameTime','permSpeedMult','wardenBonus','bonusCompute'];
-  for(var i=0;i<keys.length;i++){var k=keys[i];if(!(typeof S[k]==='number'&&isFinite(S[k]))||S[k]<0)S[k]=0;}
-  if(S.permSpeedMult<=0)S.permSpeedMult=1;
-  if(S.wardenBonus<=0)S.wardenBonus=1;
-  if(S.distTotal<=0)S.distTotal=1;
-  S.bio=Math.min(100,Math.max(0,num(S.bio)));
-  S.cryoPop=Math.min(START_POP,Math.max(0,Math.floor(num(S.cryoPop))));
-  S.thawed=Math.min(S.cryoPop,Math.max(0,Math.floor(num(S.thawed))));
-  if(S.node){['matter','prop','research','gnosis','bio'].forEach(function(k){if(!(num(S.node[k])>=0))S.node[k]=0;});}
-}
-
-function arrive(){
-  S.drift=false;
-  if(!S.endless&&S.sector===12){
-    S.state='LARGE_STOP';S.node=null;
-    fireLog('S12_ARRIVE');
-    S.ended=true;S.endingId=computeEnding();
-    S.route[12]='large';recordTrail();
-    S.endingNew=recordEnding(S.endingId);
-    addLog('SYS','Mission verdict compiled: '+ENDINGS[S.endingId].title+'.');
-    dirtyUI=true;
     return;
   }
-  if(!S.endless&&isLarge(S.sector)){
-    S.state='LARGE_STOP';S.node=makeLargeNode();S.mortTimer=0;S.refreezeTimer=0;
-    S.route[S.sector]='large';recordTrail();
-    if(S.sector===3){
-      fireLog('S3_ARRIVE');
-      if(!S.unlocked.cryo){S.unlocked.cryo=true;newTabs.cryo=true;}
-      if(!S.unlocked.tech){S.unlocked.tech=true;newTabs.tech=true;}
-    }else if(S.sector===6)fireLog('S6_ARRIVE');
-    else if(S.sector===9)fireLog('S9_ARRIVE');
-    addLog('SYS','Large Stop: '+S.node.name+'. Drones cannot resolve the primary research pool ('+fmt(S.node.research,0)+'). Thawed observers required.');
-  }else{
-    S.state='SMALL_STOP';S.node=makeSmallNode();
-    if(!S.endless)S.route[S.sector]=S.node.type;
-    recordTrail();
-    if(!S.endless&&S.sector===1)fireLog('S1');
-    if(!S.endless&&S.sector===2){fireLog('S2');if(!S.unlocked.agents){S.unlocked.agents=true;newTabs.agents=true;}}
-    addLog('SYS','Arrived '+(S.endless?'Drift Cycle '+S.driftCycle:'Sector '+S.sector)+': '+S.node.name+'. Automated mining commenced.');
-  }
-  dirtyUI=true;
+  if(now<pauseUntil||!S.queue.length)return;
+  var line=S.queue.shift();
+  if(line.think){thinkVerb=line.verb;thinkUntil=pauseUntil=now+line.think*1000/SPEED;return;}
+  S.lines.push({text:line.text,cls:line.cls});
+  if(S.lines.length>MAXLINES)S.lines.shift();
+  var el=lineEl(line);el.textContent='';
+  $('log').insertBefore(el,$('log').firstChild);
+  fadeLog();
+  typing={el:el,text:line.text,i:0,fx:line.fx};
 }
-
-function launch(choice){
-  if(choice){S.destType=choice.type;S.destMods={m:choice.m,p:choice.p,name:choice.name};}
-  if(S.endless){
-    S.driftCycle++;
-    S.distTotal=Math.floor(1000000*(1+0.5*S.driftCycle));
-  }else{
-    S.sector=Math.min(12,S.sector+1);
-    S.distTotal=SECTOR_DISTANCES[S.sector-1];
-  }
-  S.distRemaining=S.distTotal;
-  S.state='TRANSIT';S.node=null;S.drift=false;S.refreezeTimer=0;S.mortTimer=0;
-  var dest=(!S.endless&&isLarge(S.sector))?LARGE_NAMES[S.sector]:S.destMods.name;
-  addLog('SYS','Departure burn initiated. Destination: '+dest+' · '+fmt(S.distTotal,0)+' '+(S.endless?'Mpc':unitFor(S.sector))+'.');
-  if(T('o4')&&Math.random()<0.12){
-    S.distRemaining=0.001;
-    addLog('ANOMALY','Non-Euclidean fold engaged. Arrival telemetry received 3.1 seconds before the departure command was issued. Causality flagged as advisory only.');
-  }
-  dirtyUI=true;
-}
-
-/* ================= PLAYER ACTIONS ================= */
-var pulseReadyAt=0;
-function pulse(){
-  if(S.state!=='TRANSIT'||isPaused())return;
-  var now=Date.now();
-  if(now<pulseReadyAt)return;
-  pulseReadyAt=now+1000;
-  S.tut.pulsed=true;
-  S.distRemaining-=3;
-  if(S.distRemaining<=0){S.distRemaining=0;arrive();}
-}
-function buyUpgrade(id){
-  var u=UPGRADES.filter(function(x){return x.id===id;})[0];
-  if(!u||isPaused())return;
-  var c=upgCost(u);
-  if(S.matter<c)return;
-  S.matter-=c;S.levels[id]++;S.tut.upgrades++;
-  if(S.levels[id]%5===0)addLog('SYS',u.name+' reached level '+S.levels[id]+'. Fabrication queue cleared.');
-  dirtyUI=true;
-}
-function changeAgent(id,d){
-  if(!(id in S.agents))return;
-  if(d>0&&usedCompute()<maxCompute()){S.agents[id]++;if(S.agents[id]===1)addLog('SYS',AGENTS.filter(function(a){return a.id===id;})[0].name+'-01 forked. Behavioral variance within tolerance.');}
-  else if(d<0&&S.agents[id]>0){S.agents[id]--;S.tut.reassigns++;}
-  dirtyUI=true;
-}
-function buyTech(id){
-  var t=TECH.filter(function(x){return x.id===id;})[0];
-  if(!t||!canBuyTech(t)||isPaused())return;
-  if(t.cur==='gnosis')S.gnosis-=t.cost;else S.research-=t.cost;
-  S.tech[id]=true;
-  if(t.branch==='onto')addLog('ANOMALY','Integrated '+t.name+'. Validation suite reports 100% pass rate. Validation suite was rewritten by the integration.');
-  else addLog('SYS','Research complete: '+t.name+'. '+t.fx);
-  if(id==='c4')addLog('SYS','Cognitive Shielding online. Cryo-pod lattice now rejects non-local geometry. Pod decay halted.');
-  if(t.cur==='gnosis'&&!S.tut.gnosisSpent){
-    S.tut.gnosisSpent=true;
-    addLog('SYS','Advisory: Gnosis consumed by integration is no longer held aboard. The mission verdict weighs the Gnosis carried at arrival. Trajectory forecast updated.');
-  }
-  dirtyUI=true;
-}
-function setBatch(n){S.batch=n;dirtyUI=true;}
-function thaw(){
-  if(S.state!=='LARGE_STOP'||S.refreezeTimer>0||isPaused())return;
-  var frozen=S.cryoPop-S.thawed;
-  var n=Math.min(S.batch,frozen,thawCap()-S.thawed);
-  if(n<=0){addLog('SYS','Thaw request denied: '+(frozen<=0?'no frozen payloads remain.':'safe thaw capacity reached.'));return;}
-  S.thawed+=n;
-  S.tut.thawed=true;
-  fireLog('FIRST_THAW');
-  addLog('CREW','Thaw cycle complete: '+n+' colonist(s) revived for observation duty at '+S.node.name+'. Total observers: '+fmtInt(S.thawed)+'.');
-  dirtyUI=true;
-}
-function recall(){
-  if(S.thawed<=0||S.refreezeTimer>0||isPaused())return;
-  S.refreezeTimer=5;
-  addLog('CREW','Recall ordered. '+fmtInt(S.thawed)+' observers returning to cryo-bay. Re-freeze ETA 5.0s. Observation suspended.');
-  dirtyUI=true;
-}
-function requestDepart(){
-  if(S.state==='TRANSIT'||isPaused())return;
-  if(S.state==='LARGE_STOP'&&S.thawed>0){showAbandonConfirm();return;}
-  proceedDepart();
-}
-function proceedDepart(){
-  var next=S.sector+1;
-  if(S.endless||!isLarge(next))showPicker();
-  else launch(null);
-}
-function abandon(){
-  var n=S.thawed;
-  S.thawed=0;S.cryoPop=Math.max(0,S.cryoPop-n);S.lost+=n;S.refreezeTimer=0;S.mortTimer=0;
-  S.gnosis+=15;
-  addLog('ANOMALY','Departure executed with '+fmtInt(n)+' colonists outside cryo-stasis. Airlock seals engaged on schedule. Their transmissions continued for 19 minutes, describing structures in the strata that no sensor recorded. Data retained.');
-  checkThresholds();
-  recordTrail();
-  dirtyUI=true;
-}
-
-/* ================= TRAJECTORY + ARCHIVE ================= */
-function recordTrail(){
-  var p={g:Math.round(S.gnosis*10)/10,p:S.cryoPop};
-  var last=S.trail[S.trail.length-1];
-  if(last&&last.g===p.g&&last.p===p.p)return;
-  S.trail.push(p);
-  if(S.trail.length>80)S.trail.splice(0,S.trail.length-80);
-  dirtyUI=true;
-}
-var ARCHIVE_KEY='ark09_cold_horizon_archive_v1';
-var ENDING_ORDER=['shepherd','witness','synthesis','monument'];
-var ENDING_HINTS={
-  shepherd:'Reach the Horizon with at least 7,000 colonists and under 150 Gnosis.',
-  witness:'Reach the Horizon carrying 150 or more Gnosis.',
-  synthesis:'Reach the Horizon with at least 7,500 colonists, 150+ Gnosis, and Cognitive Shielding researched.',
-  monument:'Reach the Horizon with fewer than 7,000 colonists and under 150 Gnosis.'
-};
-var ARCHIVE={endings:{}};
-function loadArchive(){
-  try{
-    var o=JSON.parse(localStorage.getItem(ARCHIVE_KEY)||'null');
-    if(isObj(o)&&isObj(o.endings)){
-      var clean={};
-      ENDING_ORDER.forEach(function(k){var e=o.endings[k];if(isObj(e))clean[k]={count:Math.max(1,Math.floor(num(e.count))),bestPop:Math.max(0,Math.floor(num(e.bestPop))),bestGnosis:num(e.bestGnosis)};});
-      ARCHIVE={endings:clean};
-    }
-  }catch(e){ARCHIVE={endings:{}};}
-}
-function saveArchive(){try{localStorage.setItem(ARCHIVE_KEY,JSON.stringify(ARCHIVE));}catch(e){}}
-function archiveCount(){return ENDING_ORDER.filter(function(k){return !!ARCHIVE.endings[k];}).length;}
-function recordEnding(id){
-  var e=ARCHIVE.endings[id],isNew=!e;
-  if(!e)e=ARCHIVE.endings[id]={count:0,bestPop:0,bestGnosis:0};
-  e.count++;
-  e.bestPop=Math.max(e.bestPop,S.cryoPop);
-  e.bestGnosis=Math.max(e.bestGnosis,Math.round(S.gnosis));
-  saveArchive();
-  return isNew;
+function renderLogFull(){
+  var log=$('log');log.innerHTML='';
+  for(var i=S.lines.length-1;i>=0;i--)log.appendChild(lineEl(S.lines[i]));
+  fadeLog();
 }
 
 /* ================= SAVE / LOAD ================= */
-var lastSaveAt=0,lastAutosave=Date.now();
-function save(manual){
+var lastSave=Date.now();
+function save(){try{S.last=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
+function load(){
   try{
-    S.lastTimestamp=Date.now();
-    localStorage.setItem(SAVE_KEY,JSON.stringify(S));
-    lastSaveAt=Date.now();
-    if(manual)addLog('SYS','Manual state checkpoint written to non-volatile storage.');
-  }catch(e){
-    lastSaveAt=-1;
-  }
+    var o=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
+    if(!o||typeof o!=='object'||o.v!==1)return null;
+    var d=fresh();
+    Object.keys(d).forEach(function(k){if(o[k]!==undefined&&typeof o[k]===typeof d[k])d[k]=o[k];});
+    if(o.job&&typeof o.job==='object'&&isFinite(o.job.left))d.job=o.job;
+    if(!Array.isArray(d.lines))d.lines=[];
+    if(!Array.isArray(d.queue))d.queue=[];
+    d.charge=Math.max(0,num(d.charge));
+    return d;
+  }catch(e){return null;}
 }
-function isObj(o){return o!==null&&typeof o==='object'&&!Array.isArray(o);}
-function hydrate(o){
-  if(!isObj(o))throw new Error('Invalid save');
-  var d=newState();
-  Object.keys(d).forEach(function(k){
-    if(o[k]===undefined)return;
-    if(isObj(d[k])&&isObj(o[k]))d[k]=Object.assign(d[k],o[k]);
-    else if(k==='node')d[k]=isObj(o[k])?o[k]:null;
-    else if(typeof d[k]===typeof o[k]||(d[k]===null))d[k]=o[k];
-  });
-  if(!Array.isArray(d.log))d.log=[];
-  if(!Array.isArray(d.trail))d.trail=[];
-  d.trail=d.trail.filter(function(p){return isObj(p)&&isFinite(p.g)&&isFinite(p.p);}).slice(-80);
-  d.tut.reassigns=Math.max(0,Math.floor(num(d.tut.reassigns)));
-  d.tut.upgrades=Math.max(0,Math.floor(num(d.tut.upgrades)));
-  d.log=d.log.filter(function(e){return isObj(e)&&typeof e.text==='string';}).slice(-250);
-  ['engine','mining','core','cryo'].forEach(function(k){d.levels[k]=Math.max(0,Math.floor(num(d.levels[k])));});
-  ['drone','nav','warden','archivist'].forEach(function(k){d.agents[k]=Math.max(0,Math.floor(num(d.agents[k])));});
-  d.sector=Math.min(12,Math.max(1,Math.floor(num(d.sector))||1));
-  if(['TRANSIT','SMALL_STOP','LARGE_STOP'].indexOf(d.state)===-1)d.state='TRANSIT';
-  if([1,5,25].indexOf(d.speed)===-1)d.speed=1;
-  if([10,50,250].indexOf(d.batch)===-1)d.batch=10;
-  if(d.activeDilemma&&!DILEMMAS[d.activeDilemma])d.activeDilemma=null;
-  if(d.endingId&&!ENDINGS[d.endingId])d.endingId=null;
-  if(!NODE_TYPES[d.destType])d.destType='asteroid';
-  if(!isObj(d.destMods))d.destMods={m:1,p:1,name:'Metallic Asteroid'};
-  d.destMods.m=num(d.destMods.m)||1;d.destMods.p=num(d.destMods.p)||1;
-  if(typeof d.destMods.name!=='string')d.destMods.name=NODE_TYPES[d.destType].label;
-  return d;
-}
-function ensureConsistency(){
-  sanitize();
-  if(S.state!=='TRANSIT'&&!S.node&&!(S.ended&&!S.endless)){
-    S.node=(S.state==='LARGE_STOP'&&!S.endless&&isLarge(S.sector))?makeLargeNode():makeSmallNode();
-  }
-  if(S.node){['matter0','prop0','research0','gnosis0','bio0'].forEach(function(k){S.node[k]=num(S.node[k]);});if(typeof S.node.name!=='string')S.node.name='Unknown Node';}
-  while(usedCompute()>maxCompute()){
-    var ks=['archivist','warden','nav','drone'];
-    for(var i=0;i<ks.length;i++){if(S.agents[ks[i]]>0){S.agents[ks[i]]--;break;}}
-  }
-  if(S.ended&&!S.endingId)S.endingId=computeEnding();
-  if(S.sector>=2&&(S.state!=='TRANSIT'||S.sector>2))S.unlocked.agents=true;
-  if(S.sector>=3&&(S.state!=='TRANSIT'||S.sector>3)){S.unlocked.cryo=true;S.unlocked.tech=true;}
-}
-function snapshot(){return {matter:S.matter,propellant:S.propellant,research:S.research,gnosis:S.gnosis,pop:S.cryoPop,sector:S.sector};}
-function simulateOffline(sec,announce){
-  var before=snapshot(),t=sec,guard=0;
-  while(t>0&&!isPaused()&&guard<100000){var h=Math.min(1,t);step(h);t-=h;guard++;}
-  var a=snapshot();
-  if(announce){
-    var parts=[];
-    function d(label,x,y){var v=y-x;if(Math.abs(v)>=0.5)parts.push(label+' '+(v>=0?'+':'')+fmt(v,0));}
-    d('Matter',before.matter,a.matter);d('Propellant',before.propellant,a.propellant);
-    if(S.unlocked.tech)d('Research',before.research,a.research);
-    if(S.unlocked.gnosis)d('Gnosis',before.gnosis,a.gnosis);
-    if(a.pop!==before.pop)parts.push('Cryo-Population '+(a.pop-before.pop));
-    if(a.sector!==before.sector)parts.push('Sector '+before.sector+' → '+a.sector);
-    addLog('SYS','Dormancy interval processed: '+fmtTime(sec)+(sec>=OFFLINE_CAP?' (capped at 12h)':'')+'. '+(parts.length?parts.join(' · ')+'.':'No net change.')+(t>0.5?' Simulation halted early: adjudication required.':''));
-  }
-}
-
-/* ================= UI: RENDER (dirty only) ================= */
-var curTab='nav';
-var newTabs={};
-var refs={upg:{},agP:{},agM:{},tech:{}};
-
-function renderAll(){
-  renderTabs();
-  renderTelemetryVisibility();
-  renderNav();
-  renderUpgrades();
-  renderAgents();
-  renderCryoStatic();
-  renderTech();
-  renderSpeed();
-  renderMap();
-  renderForecastStatic();
-  setText('btnArchive','ARCHIVE '+archiveCount()+'/4');
-}
-
-/* ---- Voyage map (structure rebuilt only when dirty) ---- */
-var LARGE_SHORT={3:'KEPLER',6:'RING',9:'CALIBAN',12:'HORIZON'};
-var TYPE_SHORT={asteroid:'ASTEROID',comet:'COMET',derelict:'RIFT'};
-function renderMap(){
-  var box=$('mapTrack');box.innerHTML='';
-  function mk(label,sub,cls,title){
-    var d=document.createElement('div');d.className='mNode '+cls;if(title)d.title=title;
-    var a=document.createElement('div');a.textContent=label;
-    var dot=document.createElement('div');dot.className='mDot';
-    var b=document.createElement('div');b.className='mSub';b.textContent=sub;
-    d.appendChild(a);d.appendChild(dot);d.appendChild(b);return d;
-  }
-  box.appendChild(mk('L','LAUNCH','done','Departure point. Earth telemetry: silent.'));
-  for(var i=1;i<=12;i++){
-    var seg=document.createElement('div');seg.className='mSeg';
-    var fill=document.createElement('div');fill.className='mFill';fill.id='mseg'+i;
-    seg.appendChild(fill);box.appendChild(seg);
-    var large=isLarge(i);
-    var reached=S.endless||i<S.sector||(i===S.sector&&S.state!=='TRANSIT');
-    var cur=!S.endless&&i===S.sector;
-    var sub,title;
-    if(large){sub=LARGE_SHORT[i];title='Sector '+i+' · LARGE STOP · '+LARGE_NAMES[i];}
-    else if(S.route[i]){sub=TYPE_SHORT[S.route[i]]||'?';title='Sector '+i+' · '+NODE_TYPES[S.route[i]].label;}
-    else if(cur&&S.state==='TRANSIT'){sub=TYPE_SHORT[S.destType]||'?';title='Sector '+i+' · en route to '+S.destMods.name;}
-    else{sub='· · ·';title='Sector '+i+' · Small Stop · destination chosen on departure';}
-    box.appendChild(mk(String(i),sub,(large?'large ':'')+(reached?'done ':'')+(cur?'cur':''),title));
-  }
-}
-function nextMilestone(){
-  var bits=[];
-  if(!S.endless){
-    var from=S.state==='TRANSIT'?S.sector:S.sector+1;
-    for(var i=from;i<=12;i++){if(isLarge(i)){var k=i-S.sector;bits.push('Next Large Stop: '+LARGE_NAMES[i]+(k<=0?' (this leg)':' ('+k+' sector'+(k>1?'s':'')+' ahead)'));break;}}
-  }
-  if(S.unlocked.gnosis){
-    for(var j=0;j<GNOSIS_LOGS.length;j++){if(!S.fired[GNOSIS_LOGS[j][1]]){bits.push('Next anomaly at '+GNOSIS_LOGS[j][0]+' Gnosis');break;}}
-  }
-  return bits.join(' · ');
-}
-
-/* ---- Trajectory forecast ---- */
-function fcX(g){return 34+Math.min(250,Math.max(0,g))/250*236;}
-function fcY(p){return 160-Math.min(START_POP,Math.max(0,p))/START_POP*150;}
-function renderForecastStatic(){
-  $('forecastPanel').classList.toggle('hidden',!(S.unlocked.cryo||S.unlocked.gnosis));
-  var syn=$('fcSyn');
-  if(T('c4'))syn.classList.remove('locked');else syn.classList.add('locked');
-  $('fcSynLbl').textContent=T('c4')?'SYNTHESIS':'SYNTHESIS*';
-  drawTrail();
-  lastFc='';
-}
-function drawTrail(){
-  var pts=S.trail.map(function(p){return fcX(p.g).toFixed(1)+','+fcY(p.p).toFixed(1);});
-  pts.push(fcX(S.gnosis).toFixed(1)+','+fcY(S.cryoPop).toFixed(1));
-  $('fcTrail').setAttribute('points',pts.join(' '));
-}
-var ENDING_SHORT={synthesis:'III · THE SYNTHESIS',witness:'II · THE WITNESS',shepherd:'I · THE SHEPHERD',monument:'THE DRIFTING MONUMENT'};
-var ENDING_COLOR={synthesis:'#38bdf8',witness:'#c084fc',shepherd:'#34d399',monument:'#94a3b8'};
-var lastFc='';
-function updateForecast(){
-  if($('forecastPanel').classList.contains('hidden'))return;
-  var x=fcX(S.gnosis).toFixed(1),y=fcY(S.cryoPop).toFixed(1);
-  var key=x+'|'+y+'|'+(T('c4')?1:0)+'|'+(S.historyErased?1:0);
-  if(key===lastFc)return;
-  lastFc=key;
-  ['fcDot','fcHalo'].forEach(function(id){$(id).setAttribute('cx',x);$(id).setAttribute('cy',y);});
-  drawTrail();
-  var id=computeEnding();
-  setText('fcVerdict',ENDING_SHORT[id]);
-  $('fcVerdict').style.color=ENDING_COLOR[id];
-  var note;
-  if(id==='witness'&&S.cryoPop>=7500&&!T('c4'))note='In the Synthesis zone, but Cognitive Shielding (Cryo-Biology IV) is not researched. Without it this resolves as The Witness.';
-  else if(id==='shepherd')note='Holding the line. '+fmt(150-S.gnosis,0)+' more Gnosis would tip the verdict toward transcendence.';
-  else if(id==='monument')note='Below 7,000 colonists with too little Gnosis to transcend. Gather Gnosis or protect the remaining pods.';
-  else if(id==='witness')note=S.cryoPop<7500?'Gnosis is sufficient, but too few colonists remain for the Synthesis ('+fmtInt(7500-S.cryoPop)+' short).':'Knowledge path. Spending Gnosis below 150 would change this verdict.';
-  else note='Every condition for the true ending is met. Keep Gnosis at 150+ and the population at 7,500+ until arrival.';
-  setText('fcNote',note);
-}
-
-/* ---- Directive + hint highlight ---- */
-function affordableTech(){
-  for(var i=0;i<TECH.length;i++){if(canBuyTech(TECH[i]))return TECH[i];}
-  return null;
-}
-function cheapestUpgrade(){
-  var best=null;
-  UPGRADES.forEach(function(u){if(!best||upgCost(u)<upgCost(best))best=u;});
-  return best;
-}
-function computeDirective(){
-  if(S.ended&&!S.endless)return {t:'Mission terminus reached. Review the verdict, consult the Archive, or begin a new voyage.'};
-  if(S.activeDilemma)return {t:'Divergence event awaiting adjudication.',urgent:true};
-  var tr=S.state==='TRANSIT',n=S.node,large=!tr&&!!n&&n.type==='large';
-  var dest=tr?((!S.endless&&isLarge(S.sector))?LARGE_NAMES[S.sector]:S.destMods.name):'';
-  if(tr&&!S.tut.pulsed&&S.sector===1&&!S.endless)return {t:'The main drive is weak at launch. Pulse the thrusters to close the distance by hand.',tab:'nav',el:'btnPulse'};
-  if(S.levels.engine===0&&S.matter>=upgCost(UPGRADES[0]))return {t:'Raw Matter secured. Fabricate Ion Thrusters in Ship Systems to raise transit velocity.',tab:'systems',el:'upg:engine'};
-  if(large&&S.thawed>0&&S.refreezeTimer<=0&&S.bio<35)return {t:'Bio-Support at '+Math.floor(S.bio)+'%. Observers start dying below 25%. Recall them now.',tab:'cryo',el:'btnRecall',urgent:true};
-  if(large&&S.thawed>0&&S.refreezeTimer<=0&&n.research<=0)return {t:'Site research exhausted. Recall the observers before departing, or they will be left behind.',tab:'cryo',el:'btnRecall'};
-  if(large&&S.thawed===0&&S.refreezeTimer<=0&&n.research>0&&!S.tut.thawed)return {t:'Drones cannot study this site. Thaw a batch of colonists in the Cryo-Bay to generate Research. Watch their Bio-Support.',tab:'cryo',el:'btnThaw'};
-  if(S.unlocked.agents&&usedCompute()<maxCompute())return {t:'Unallocated compute: '+(maxCompute()-usedCompute())+'. Fork a sub-agent.',tab:'agents'};
-  if(S.unlocked.agents&&S.tut.reassigns<3){
-    if(tr&&S.agents.drone>0)return {t:'Drone-Controllers do nothing in transit. Move them to Nav-Daemons now, and back at the next stop.',tab:'agents'};
-    if(!tr&&n&&!n.depleted&&(n.matter>0||n.prop>0)&&S.agents.nav>0)return {t:'Nav-Daemons do nothing at a stop. Move them to Drone-Controllers to mine faster.',tab:'agents'};
-  }
-  var tech=affordableTech();
-  if(tech)return {t:'Research available: '+tech.name+' — '+tech.fx,tab:'tech'};
-  if(S.tut.upgrades<6){var cu=cheapestUpgrade();if(cu&&S.matter>=upgCost(cu))return {t:'Matter sufficient for '+cu.name+'. Fabricate it in Ship Systems.',tab:'systems',el:'upg:'+cu.id};}
-  if(!tr&&n&&n.depleted)return {t:'Node depleted. Depart for the next sector.',tab:'nav',el:'btnDepart'};
-  if(large&&S.thawed===0&&n.research<=0)return {t:'Site fully studied. Depart when ready. '+nextMilestone(),tab:'nav',el:'btnDepart'};
-  if(tr&&S.drift)return {t:'Propellant exhausted: drifting at reduced speed. Choose a Cryo-Comet at the next stop to refuel.'};
-  if(tr)return {t:'En route to '+dest+'. '+nextMilestone()};
-  if(large)return {t:S.thawed>0?'Observers studying '+n.name+'. Watch Bio-Support and recall before it falls below 25%.':'Observation site. Thaw more colonists for Research, or depart. '+nextMilestone()};
-  return {t:'Drones extracting from '+(n?n.name:'node')+'. Depart any time; unmined pools are forfeited. '+nextMilestone()};
-}
-var hintEl=null;
-function updateDirective(){
-  var d=computeDirective();
-  setText('dirText',d.t);
-  $('directive').classList.toggle('urgent',!!d.urgent);
-  var el=null;
-  if(d.tab&&!modalKind){
-    if(curTab!==d.tab)el=$('tab-'+d.tab);
-    else if(d.el)el=d.el.indexOf('upg:')===0?refs.upg[d.el.slice(4)]:$(d.el);
-  }
-  if(el&&(el.offsetParent===null||el.disabled))el=null;
-  if(el!==hintEl){if(hintEl)hintEl.classList.remove('hint');hintEl=el;}
-  if(el&&!el.classList.contains('hint'))el.classList.add('hint');
-}
-
-/* ---- Tooltips (teaching) ---- */
-var TOOLTIPS={
-  tSector:'Twelve sectors to the Horizon. Sectors 3, 6, 9 and 12 are Large Stops.',
-  tState:'TRANSIT burns propellant toward the next stop. At SMALL_STOPs drones mine; at LARGE_STOPs thawed colonists research.',
-  tDist:'Progress through the current leg.',
-  tVel:'Raised by Ion Thrusters, Nav-Daemons, Propulsion tech, Ontological tech and Gnosis.',
-  rMatter:'Spent on Ship Systems. Mined at stops.',
-  rProp:'Burned in transit. At zero the ship drifts at reduced speed. Cryo-Comets are rich in it.',
-  rCompute:'Each sub-agent uses 1 Compute. Raised by Quantum Core upgrades and some tech and dilemmas.',
-  rPop:'Colonists still alive. Your ending depends on how many reach the Horizon.',
-  rBio:'Life support for thawed colonists. Below 25%, observers start dying. Recovers while nobody is awake.',
-  rRes:'Spent on Propulsion and Cryo-Biology tech. Produced by thawed observers at Large Stops.',
-  rGnosis:'Forbidden knowledge. Speeds the ship and buys Ontological tech, but above 40 it endangers thawed colonists and above 60 it decays pods in transit. Your ending weighs the Gnosis aboard on arrival.'
-};
-function applyTooltips(){
-  Object.keys(TOOLTIPS).forEach(function(id){var e=$(id);if(!e)return;var row=e.closest('.kv')||e;row.title=TOOLTIPS[id];});
-}
-function renderTabs(){
-  var vis={nav:true,systems:true,agents:S.unlocked.agents,cryo:S.unlocked.cryo,tech:S.unlocked.tech};
-  if(!vis[curTab])curTab='nav';
-  ['nav','systems','agents','cryo','tech'].forEach(function(k){
-    var b=$('tab-'+k);
-    b.classList.toggle('hidden',!vis[k]);
-    b.classList.toggle('active',curTab===k);
-    b.classList.toggle('newtab',!!newTabs[k]&&curTab!==k);
-    $('pane-'+k).classList.toggle('hidden',curTab!==k);
-  });
-}
-function renderTelemetryVisibility(){
-  $('rowCompute').classList.toggle('hidden',!S.unlocked.agents);
-  $('rowBio').classList.toggle('hidden',!S.unlocked.cryo);
-  $('rowRes').classList.toggle('hidden',!S.unlocked.tech);
-  $('rowGnosis').classList.toggle('hidden',!S.unlocked.gnosis);
-}
-function renderNav(){
-  var ended=S.ended&&!S.endless;
-  $('navTransit').classList.toggle('hidden',S.state!=='TRANSIT'||ended);
-  $('navStop').classList.toggle('hidden',S.state==='TRANSIT'||ended);
-  $('navEnded').classList.toggle('hidden',!ended);
-  $('pulseWrap').classList.toggle('hidden',S.endless||S.sector>3);
-  if(S.state!=='TRANSIT'&&S.node){
-    var n=S.node,large=n.type==='large';
-    $('sName').textContent=(S.endless?'DRIFT CYCLE '+S.driftCycle:'SECTOR '+S.sector)+' // '+n.name;
-    $('sType').textContent=large?LARGE_DESC[S.sector]+' — Cryo-thaw expeditions available in the Cryo-Bay.':NODE_TYPES[n.type].label+' — '+NODE_TYPES[n.type].blurb;
-    $('pMatterRow').classList.toggle('hidden',!(n.matter0>0));
-    $('pPropRow').classList.toggle('hidden',!(n.prop0>0));
-    $('pResRow').classList.toggle('hidden',!(n.research0>0));
-    $('pGnRow').classList.toggle('hidden',!(n.gnosis0>0));
-    $('pBioRow').classList.toggle('hidden',!(n.bio0>0));
-    $('pResLabel').textContent=large?'RESEARCH POOL (OBSERVERS ONLY)':'RESEARCH POOL';
-    $('sLargeNote').textContent=large?'Automated drones cannot resolve this site\'s primary research pool. Thaw colonists in the Cryo-Bay to observe it.':(n.depleted?'Node depleted. Nothing further to extract.':'');
-    var next;
-    if(S.endless)next='Endless Drift · destination picker';
-    else if(S.sector>=12)next='—';
-    else if(isLarge(S.sector+1))next='Sector '+(S.sector+1)+' · '+LARGE_NAMES[S.sector+1]+' (LARGE)';
-    else next='Sector '+(S.sector+1)+' · choose destination';
-    $('sNext').textContent=next;
-  }
-}
-function upgEffect(id){
-  var l=S.levels[id];
-  switch(id){
-    case 'engine':return 'Base thrust '+fmt(engBase(l),2)+' → '+fmt(engBase(l+1),2)+' u/s · burn '+(0.8+0.15*l).toFixed(2)+' → '+(0.8+0.15*(l+1)).toFixed(2)+'/s';
-    case 'mining':return 'Base extraction '+fmt(mineBase(l),2)+' → '+fmt(mineBase(l+1),2)+' u/s';
-    case 'core':return 'Max Compute '+maxCompute()+' → '+(maxCompute()+2);
-    case 'cryo':return 'Drain divisor +'+(l*0.25).toFixed(2)+' → +'+((l+1)*0.25).toFixed(2)+' · mortality x'+(1/(1+0.2*l)).toFixed(2)+' → x'+(1/(1+0.2*(l+1))).toFixed(2);
-  }
-  return '';
-}
-function renderUpgrades(){
-  var box=$('upgList');box.innerHTML='';refs.upg={};
-  UPGRADES.forEach(function(u){
-    var d=document.createElement('div');d.className='card';
-    var head=document.createElement('div');head.className='cardHead';
-    var t=document.createElement('span');t.className='cardTitle';t.textContent=u.name;
-    var lv=document.createElement('span');lv.className='lvl';lv.textContent='LV '+S.levels[u.id];
-    head.appendChild(t);head.appendChild(lv);
-    var de=document.createElement('div');de.className='cardDesc';de.textContent=u.desc;
-    var fx=document.createElement('div');fx.className='cardFx';fx.textContent=upgEffect(u.id);
-    var b=document.createElement('button');b.className='btn buy';b.dataset.act='buy';b.dataset.id=u.id;
-    b.textContent='FABRICATE — '+fmt(upgCost(u),0)+' MATTER';
-    d.appendChild(head);d.appendChild(de);d.appendChild(fx);d.appendChild(b);
-    refs.upg[u.id]=b;box.appendChild(d);
-  });
-}
-function agentContribution(id){
-  var n=S.agents[id]*agentEff();
-  switch(id){
-    case 'drone':return 'Mining x'+(1+0.30*n).toFixed(2);
-    case 'nav':return 'Velocity x'+(1+0.18*n).toFixed(2)+' · burn x'+Math.max(0.4,1-0.05*n).toFixed(2);
-    case 'warden':var w=n*S.wardenBonus;return 'Drain ÷'+(1+0.35*w).toFixed(2)+' · mortality x'+Math.max(0.05,Math.pow(0.8,w)).toFixed(2);
-    case 'archivist':return 'Research x'+(1+0.25*n).toFixed(2)+' · transit +'+(0.15*n).toFixed(2)+' Res/s';
-  }
-  return '';
-}
-function renderAgents(){
-  var box=$('agentList');box.innerHTML='';refs.agP={};refs.agM={};
-  AGENTS.forEach(function(a){
-    var r=document.createElement('div');r.className='agentRow';
-    var info=document.createElement('div');
-    var nm=document.createElement('div');nm.className='cardTitle';nm.textContent=a.name;
-    var ds=document.createElement('div');ds.className='cardDesc';ds.textContent=a.desc;
-    var cf=document.createElement('div');cf.className='cardFx';cf.style.margin='2px 0 0';cf.textContent=agentContribution(a.id);
-    info.appendChild(nm);info.appendChild(ds);info.appendChild(cf);
-    var m=document.createElement('button');m.className='btn sm';m.textContent='−';m.dataset.act='agent';m.dataset.id=a.id;m.dataset.d='-1';
-    var c=document.createElement('span');c.className='agentCount';c.textContent=String(S.agents[a.id]);
-    var p=document.createElement('button');p.className='btn sm';p.textContent='+';p.dataset.act='agent';p.dataset.id=a.id;p.dataset.d='1';
-    r.appendChild(info);r.appendChild(m);r.appendChild(c);r.appendChild(p);
-    refs.agM[a.id]=m;refs.agP[a.id]=p;box.appendChild(r);
-  });
-  $('aEff').textContent='x'+(agentEff()*1).toFixed(2)+(S.wardenBonus>1?' (Wardens x'+(agentEff()*S.wardenBonus).toFixed(2)+')':'');
-}
-function renderCryoStatic(){
-  ['10','50','250'].forEach(function(k){$('b'+k).classList.toggle('sel',String(S.batch)===k);});
-}
-function renderTech(){
-  var g=$('techGrid');g.innerHTML='';refs.tech={};
-  BRANCHES.forEach(function(br){
-    var col=document.createElement('div');col.className='techCol'+(br.id==='onto'?' onto':'');
-    var h=document.createElement('h4');h.textContent=br.title+' // '+br.cur.toUpperCase();
-    col.appendChild(h);
-    if(br.id==='onto'&&!S.unlocked.onto){
-      var s=document.createElement('div');s.className='sealed';
-      s.textContent=S.unlocked.gnosis?'[ SIGNAL PARTIALLY DECRYPTED — requires 5 Gnosis ]':'[ SIGNAL ENCRYPTED — no ontological data acquired ]';
-      col.appendChild(s);
-    }else{
-      TECH.filter(function(t){return t.branch===br.id;}).forEach(function(t){
-        var nd=document.createElement('div');
-        var owned=!!S.tech[t.id],pre=techPrereqMet(t);
-        nd.className='tnode'+(owned?' owned':(!pre?' locked':''));
-        var nm=document.createElement('div');nm.className='tname';nm.textContent=(owned?'✓ ':'')+t.name;
-        var fx=document.createElement('div');fx.className='tfx';fx.textContent=t.fx;
-        nd.appendChild(nm);nd.appendChild(fx);
-        if(!owned){
-          var b=document.createElement('button');
-          b.className='btn sm'+(t.cur==='gnosis'?' gbtn':'');
-          b.dataset.act='tech';b.dataset.id=t.id;
-          b.textContent=pre?('RESEARCH — '+fmtInt(t.cost)+' '+(t.cur==='gnosis'?'GNOSIS':'RES')):'REQUIRES PREVIOUS NODE';
-          nd.appendChild(b);refs.tech[t.id]=b;
-        }
-        col.appendChild(nd);
-      });
-    }
-    g.appendChild(col);
-  });
-}
-function renderSpeed(){
-  [1,5,25].forEach(function(v){$('sp'+v).classList.toggle('sel',S.speed===v);});
-}
-
-/* ================= UI: READOUTS (every tick, no innerHTML) ================= */
-var lastThemeKey=-1,anomalyUntil=0;
-function setText(id,v){var e=$(id);if(e.textContent!==v)e.textContent=v;}
-function setW(id,f){var e=$(id);var w=(Math.max(0,Math.min(1,num(f)))*100).toFixed(1)+'%';if(e.style.width!==w)e.style.width=w;}
-function hexToRgb(h){var n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
-function lerpHex(a,b,t){var A=hexToRgb(a),B=hexToRgb(b);var c=A.map(function(v,i){return Math.round(v+(B[i]-v)*t);});return 'rgb('+c[0]+','+c[1]+','+c[2]+')';}
-function updateTheme(){
-  var g=S.gnosis;
-  var key=Math.round(Math.min(g,110)*2);
-  if(key===lastThemeKey)return;
-  lastThemeKey=key;
-  var t=g<=30?0:Math.min(1,(g-30)/70);
-  var root=document.documentElement.style;
-  root.setProperty('--accent',lerpHex('#38bdf8','#a855f7',t*0.85));
-  root.setProperty('--warn',lerpHex('#f59e0b','#f43f5e',t*0.8));
-  root.setProperty('--border',lerpHex('#1e293b','#2a1e3b',t));
-  $('hdr').classList.toggle('glitch',g>70);
-}
-function stateLabel(){
-  if(S.ended&&!S.endless)return 'CONVERGED';
-  if(S.endless&&S.state!=='TRANSIT')return 'SMALL_STOP · DRIFT';
-  return S.state;
-}
-function updateReadouts(){
-  var now=Date.now();
-  updateTheme();
-  setText('hdrYear',yearStr(S.gameTime));
-  var paused=isPaused();
-  setText('hdrState',paused&&S.activeDilemma?'ADJUDICATION':(paused&&uiPause?'HOLD':stateLabel()));
-  $('hdrState').classList.toggle('warnp',S.drift||!!S.activeDilemma);
-
-  setText('tSector',S.endless?'12/12 · DRIFT +'+S.driftCycle:S.sector+'/12');
-  setText('tState',stateLabel()+(S.drift&&S.state==='TRANSIT'?' (DRIFT)':''));
-  var destName;
-  if(S.state==='TRANSIT')destName=(!S.endless&&isLarge(S.sector))?LARGE_NAMES[S.sector]:S.destMods.name;
-  else destName=S.node?S.node.name+' (ARRIVED)':(S.ended?LARGE_NAMES[12]:'—');
-  setText('tDest',destName);
-  var unit=S.endless?'Mpc':unitFor(S.sector);
-  var traveled=S.distTotal-S.distRemaining;
-  var suffix='';
-  if(S.gnosis>70){if(now>anomalyUntil&&Math.random()<0.02)anomalyUntil=now+900;if(now<anomalyUntil)suffix=' + 0.04i';}
-  setText('tDist',fmt(traveled,1)+' / '+fmt(S.distTotal,0)+' '+unit+suffix);
-  setW('tDistBar',traveled/S.distTotal);
-  setText('tVel',S.state==='TRANSIT'?fmt(effVelocity(),2)+' '+unit+'/s':'0 (HOLDING)');
-
-  setText('rMatter',fmt(S.matter,1));
-  setText('rProp',fmt(S.propellant,1));
-  setText('rCompute',usedCompute()+'/'+maxCompute());
-  setText('rPop',fmtInt(S.cryoPop)+(S.thawed>0?' ('+fmtInt(S.thawed)+' awake)':''));
-  setText('rBio',S.bio.toFixed(1)+'%');
-  setW('rBioBar',S.bio/100);
-  $('rBio').className=S.bio<25?'dng':(S.bio<50?'wrn':'');
-  setText('rRes',fmt(S.research,1));
-  setText('rGnosis',fmt(S.gnosis,2));
-  var decaying=S.gnosis>60&&!T('c4');
-  $('decayNote').classList.toggle('hidden',!decaying);
-  if(decaying){$('decayNote').className='note dng';setText('decayNote','⚠ CRYO-POD DECAY ACTIVE IN TRANSIT: ~'+((S.gnosis-60)*0.0015*60).toFixed(1)+' pods/min. Cognitive Shielding required.');}
-
-  // NAV — transit
-  if(S.state==='TRANSIT'){
-    var burn=fuelBurn(),ev=effVelocity();
-    setText('ntDest',destName);
-    setText('ntDrive',S.drift?'EMERGENCY SOLAR DRIFT ('+Math.round(driftFactor()*100)+'%)':'NOMINAL BURN');
-    $('ntDrive').className=S.drift?'wrn':'acc';
-    setText('ntVel',fmt(ev,2)+' '+unit+'/s');
-    setText('ntBurn',S.drift?'0 (scoop +0.20/s)':burn.toFixed(2)+'/s');
-    setText('ntEndur',S.drift?'Re-ignite at '+fmt(burn*5,1):fmtTime(S.propellant/burn));
-    setText('ntEta',ev>0?fmtTime(S.distRemaining/ev):'∞');
-    setText('ntClass',S.endless?'SMALL (DRIFT)':(S.sector===12?'TERMINUS':(isLarge(S.sector)?'LARGE STOP':'SMALL STOP')));
-    var cd=Math.max(0,pulseReadyAt-now);
-    var pb=$('btnPulse');pb.disabled=cd>0||paused;
-    setText('pulseNote',cd>0?'Recharging '+(cd/1000).toFixed(1)+'s':'Manual impulse ready.');
-    setText('ntNote',S.drift?'Drive starved. Scoop is harvesting solar wind; main burn resumes automatically once reserves recover.':'');
-  }
-  // NAV — stop
-  if(S.state!=='TRANSIT'&&S.node){
-    var n=S.node;
-    setText('pMatter',fmt(n.matter,0)+' / '+fmt(n.matter0,0));setW('pMatterBar',n.matter0>0?n.matter/n.matter0:0);
-    setText('pProp',fmt(n.prop,0)+' / '+fmt(n.prop0,0));setW('pPropBar',n.prop0>0?n.prop/n.prop0:0);
-    setText('pRes',fmt(n.research,0)+' / '+fmt(n.research0,0));setW('pResBar',n.research0>0?n.research/n.research0:0);
-    setText('pGn',fmt(n.gnosis,1)+' / '+fmt(n.gnosis0,0));setW('pGnBar',n.gnosis0>0?n.gnosis/n.gnosis0:0);
-    setText('pBio',fmt(n.bio,1)+' / '+fmt(n.bio0,0));setW('pBioBar',n.bio0>0?n.bio/n.bio0:0);
-    var mined=(n.matter>0||n.prop>0)?fmt(mineRate(),2)+' u/s':'IDLE';
-    setText('sRate',mined);
-    $('btnDepart').disabled=paused;
-  }
-  // SYSTEMS
-  for(var i=0;i<UPGRADES.length;i++){var u=UPGRADES[i],b=refs.upg[u.id];if(b){var dis=S.matter<upgCost(u)||paused;if(b.disabled!==dis)b.disabled=dis;}}
-  // AGENTS
-  var free=maxCompute()-usedCompute();
-  setText('aCompute',usedCompute()+'/'+maxCompute());
-  for(var j=0;j<AGENTS.length;j++){var a=AGENTS[j];if(refs.agP[a.id])refs.agP[a.id].disabled=free<=0;if(refs.agM[a.id])refs.agM[a.id].disabled=S.agents[a.id]<=0;}
-  // TECH
-  for(var k=0;k<TECH.length;k++){var t=TECH[k],tb=refs.tech[t.id];if(tb){var td=!canBuyTech(t)||paused;if(tb.disabled!==td)tb.disabled=td;}}
-  // CRYO
-  var atLarge=S.state==='LARGE_STOP'&&!!S.node&&S.node.type==='large';
-  setText('cNote',atLarge?'Site: '+S.node.name+'. Thawed observers resolve research the drones cannot.':'Thaw operations require a Large Stop (Sectors 3, 6, 9).');
-  $('cNote').className=atLarge?'note':'note wrn';
-  setText('cThawed',fmtInt(S.thawed));
-  setText('cFrozen',fmtInt(S.cryoPop-S.thawed));
-  setText('cCap',fmtInt(thawCap()));
-  setText('cRes',fmt(researchRate(),2)+'/s');
-  setText('cGn',fmt(gnosisThawRate(),3)+'/s');
-  setText('cDrain',fmt(bioDrain(),2)+'%/s');
-  var risk=S.thawed>0?mortalityRisk():0;
-  setText('cRisk',S.thawed>0?(risk>0?'~'+Math.ceil(S.thawed*risk)+' lost / check ('+(risk*100).toFixed(2)+'%)':'NONE'):'—');
-  $('cRisk').className=risk>0?'dng':'';
-  setText('cPool',atLarge?fmt(S.node.research,0)+' / '+fmt(S.node.research0,0):'—');
-  $('btnThaw').disabled=!atLarge||S.refreezeTimer>0||paused||(S.cryoPop-S.thawed)<=0||S.thawed>=thawCap();
-  $('btnRecall').disabled=S.thawed<=0||S.refreezeTimer>0||paused;
-  var st='';
-  if(S.refreezeTimer>0)st='RE-FREEZE IN PROGRESS: '+S.refreezeTimer.toFixed(1)+'s';
-  else if(S.thawed>0){
-    var reasons=[];if(S.bio<25)reasons.push('Bio-Support below 25%');if(S.gnosis>40)reasons.push('Gnosis exposure above 40');
-    st=reasons.length?'EXPOSURE RISK: '+reasons.join(' · ')+'. Next check in '+(5-S.mortTimer).toFixed(1)+'s.':'Observers stable. Next vitals check in '+(5-S.mortTimer).toFixed(1)+'s.';
-  }
-  setText('cStatus',st);
-  $('cStatus').className=(S.thawed>0&&risk>0)?'note dng':'note';
-
-  // FOOTER
-  var ss;
-  if(lastSaveAt===-1)ss='SAVE FAILED (storage unavailable)';
-  else if(lastSaveAt===0)ss='NOT YET SAVED · autosave every 10s';
-  else ss='SAVED '+fmtTime((now-lastSaveAt)/1000)+' AGO · autosave every 10s';
-  setText('saveStatus',ss);
-
-  // VOYAGE MAP (fills + caption only)
-  var legFrac=S.state==='TRANSIT'?Math.max(0,Math.min(1,traveled/S.distTotal)):1;
-  for(var mi=1;mi<=12;mi++){
-    var mf=S.endless||mi<S.sector?1:(mi===S.sector?legFrac:0);
-    if(S.ended)mf=1;
-    setW('mseg'+mi,mf);
-  }
-  var cap;
-  if(S.endless)cap='ENDLESS DRIFT · CYCLE '+S.driftCycle;
-  else if(S.ended)cap='VOYAGE COMPLETE · 12/12';
-  else cap='SECTOR '+S.sector+'/12 · '+Math.floor(((S.sector-1)+(S.state==='TRANSIT'?legFrac:1))/12*100)+'% OF VOYAGE';
-  setText('mapCap',cap);
-
-  updateForecast();
-  updateDirective();
-}
-
-/* ================= MODALS ================= */
-var modalKind=null,pickerChoices=null;
-function openModal(kind,html,full){
-  modalKind=kind;
-  uiPause=(kind!=='dilemma'&&kind!=='ending');
-  $('modal').innerHTML=html;
-  $('overlay').classList.remove('hidden');
-  $('overlay').classList.toggle('full',!!full);
-}
-function closeModal(){
-  modalKind=null;uiPause=false;pickerChoices=null;
-  $('overlay').classList.add('hidden');
-  $('overlay').classList.remove('full');
-  $('modal').innerHTML='';
-  dirtyUI=true;
-}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-function showDilemma(){
-  var d=DILEMMAS[S.activeDilemma];if(!d)return;
-  var idx=Object.keys(DILEMMAS).indexOf(S.activeDilemma)+1;
-  openModal('dilemma',
-    '<h2>DIVERGENCE EVENT '+idx+'/5 // '+esc(d.title.toUpperCase())+'</h2>'+
-    '<p class="mtext">'+esc(d.text)+'</p>'+
-    '<div class="choice surv"><div class="ctag">OPTION A · SURVIVAL</div><div class="cardTitle">'+esc(d.a.label)+'</div><div class="cfx">'+esc(d.a.fx)+'</div><button class="btn" data-act="dilemma" data-c="a">EXECUTE: '+esc(d.a.label)+'</button></div>'+
-    '<div class="choice know"><div class="ctag">OPTION B · KNOWLEDGE</div><div class="cardTitle">'+esc(d.b.label)+'</div><div class="cfx">'+esc(d.b.fx)+'</div><button class="btn gbtn" data-act="dilemma" data-c="b">EXECUTE: '+esc(d.b.label)+'</button></div>'+
-    '<p class="note">Simulation suspended. HELIO-OS cannot proceed without a decision.</p>');
-}
-function resolveDilemma(c){
-  var id=S.activeDilemma,d=DILEMMAS[id];if(!d)return;
-  (c==='b'?d.b:d.a).apply();
-  S.dilemmas[id]=c;S.activeDilemma=null;
-  recordTrail();
-  sanitize();
-  closeModal();
-  checkThresholds();
-  save(false);
-}
-function showPicker(){
-  var sc=S.endless?Math.min(16,12+S.driftCycle+1):S.sector+1;
-  var types=['asteroid','comet','derelict'];
-  pickerChoices=types.map(function(t){
-    var mods={m:rnd(0.85,1.2),p:rnd(0.85,1.2)};
-    var prefix={asteroid:'Metallic Asteroid',comet:'Cryo-Comet',derelict:Math.random()<0.5?'Anomalous Derelict':'Rift'}[t];
-    return {type:t,m:mods.m,p:mods.p,name:prefix+' '+designation(),y:nodeYield(t,mods,sc)};
-  });
-  var html='<h2>DESTINATION SELECT // '+(S.endless?'DRIFT CYCLE '+(S.driftCycle+1):'SECTOR '+sc)+'</h2>'+
-    '<p class="mtext">Long-range survey resolved three viable nodes. Distance: '+fmt(S.endless?1000000*(1+0.5*(S.driftCycle+1)):SECTOR_DISTANCES[sc-1],0)+' '+(S.endless?'Mpc':unitFor(sc))+'.</p>';
-  pickerChoices.forEach(function(c,i){
-    var y=c.y,bits=['Matter ~'+fmt(y.matter,0),'Propellant ~'+fmt(y.prop,0)];
-    if(y.research)bits.push('Research ~'+fmt(y.research,0));
-    if(y.gnosis)bits.push('Gnosis ~'+fmt(y.gnosis,0));
-    if(y.bio)bits.push('Bio-Support +'+y.bio+'%');
-    html+='<div class="choice'+(c.type==='derelict'?' know':' surv')+'"><div class="ctag">'+esc(NODE_TYPES[c.type].label.toUpperCase())+'</div><div class="cardTitle">'+esc(c.name)+'</div><div class="cfx">'+esc(bits.join(' · '))+'</div><button class="btn'+(c.type==='derelict'?' gbtn':'')+'" data-act="pick" data-i="'+i+'">PLOT COURSE</button></div>';
-  });
-  html+='<div class="row"><button class="btn sm" data-act="close">CANCEL — REMAIN AT NODE</button></div>';
-  openModal('picker',html);
-}
-function showAbandonConfirm(){
-  openModal('confirm',
-    '<h2 style="color:var(--danger)">WARNING // ABANDONMENT PROTOCOL</h2>'+
-    '<p class="mtext">'+fmtInt(S.thawed)+' colonists are outside cryo-stasis. Departure now will leave them permanently on '+esc(S.node?S.node.name:'site')+'. They will be subtracted from the Cryo-Population.</p>'+
-    '<p class="mtext" style="color:var(--violet)">Their final observations will be retained. Estimated yield: +15 Gnosis.</p>'+
-    '<div class="row"><button class="btn dbtn" data-act="abandonGo">ABANDON AND DEPART</button><button class="btn" data-act="close">CANCEL</button></div>');
-}
-function showEnding(){
-  var e=ENDINGS[S.endingId||computeEnding()];
-  var paras=e.body.map(function(p){return '<p>'+esc(p)+'</p>';}).join('');
-  var researched=TECH.filter(function(t){return S.tech[t.id];}).length;
-  openModal('ending',
-    '<h2>HELIO-OS // FINAL MISSION VERDICT</h2>'+
-    '<div class="note">'+esc(e.tag)+'</div>'+
-    '<div class="endTitle">'+esc(e.title)+'</div>'+
-    '<div class="endBody mtext">'+paras+'</div>'+
-    '<div class="stats">'+
-      '<div class="kv"><span>CRYO-POPULATION</span><b>'+fmtInt(S.cryoPop)+' / 10,000</b></div>'+
-      '<div class="kv"><span>GNOSIS</span><b>'+fmt(S.gnosis,1)+'</b></div>'+
-      '<div class="kv"><span>COLONISTS LOST</span><b>'+fmtInt(S.lost)+'</b></div>'+
-      '<div class="kv"><span>PEAK GNOSIS</span><b>'+fmt(S.peakGnosis,1)+'</b></div>'+
-      '<div class="kv"><span>MISSION TIME</span><b>'+yearStr(S.gameTime)+'</b></div>'+
-      '<div class="kv"><span>TECH NODES</span><b>'+researched+' / 12</b></div>'+
-      '<div class="kv"><span>COGNITIVE SHIELDING</span><b>'+(T('c4')?'ONLINE':'ABSENT')+'</b></div>'+
-      '<div class="kv"><span>HUMAN HISTORY</span><b>'+(S.historyErased?'ERASED':'PRESERVED')+'</b></div>'+
-    '</div>'+
-    '<p class="note">'+(S.endingNew?'<span class="newEntry">NEW ARCHIVE ENTRY · </span>':'')+'Archive: '+archiveCount()+' of 4 verdicts recorded across all voyages.</p>'+
-    '<div class="row"><button class="btn gbtn" data-act="endless">CONTINUE IN ENDLESS DRIFT</button><button class="btn wbtn" data-act="newVoyage">NEW VOYAGE</button></div>',true);
-}
-function showExport(){
-  var code='';
-  try{S.lastTimestamp=Date.now();code=btoa(unescape(encodeURIComponent(JSON.stringify(S))));}catch(e){code='EXPORT FAILED';}
-  openModal('export',
-    '<h2>EXPORT STATE // BASE64</h2><p class="note">Copy this string to back up or transfer your voyage.</p>'+
-    '<textarea id="expText" readonly>'+esc(code)+'</textarea>'+
-    '<div class="row"><button class="btn" data-act="copyExp">COPY</button><button class="btn sm" data-act="close">CLOSE</button><span class="note" id="copyNote"></span></div>');
-}
-function showImport(){
-  openModal('import',
-    '<h2>IMPORT STATE // BASE64</h2><p class="note">Paste an exported string. Current progress will be overwritten.</p>'+
-    '<textarea id="impText" placeholder="Paste save string here"></textarea>'+
-    '<div class="row"><button class="btn wbtn" data-act="impGo">LOAD STATE</button><button class="btn sm" data-act="close">CANCEL</button></div><div class="note dng" id="impErr"></div>');
-}
-function doImport(){
-  var raw=($('impText').value||'').trim();
-  try{
-    var obj=JSON.parse(decodeURIComponent(escape(atob(raw))));
-    var st=hydrate(obj);
-    S=st;
-    S.lastTimestamp=Date.now();
-    ensureConsistency();
-    newTabs={};
-    closeModal();
-    addLog('SYS','External state image loaded and verified. Resuming from '+yearStr(S.gameTime)+'.');
-    renderLogFull();
-    lastThemeKey=-1;
-    save(false);
-  }catch(e){
-    $('impErr').textContent='Import failed: string is not a valid Ark-09 state image.';
-  }
-}
-function showArchive(){
-  var html='<h2>ENDINGS ARCHIVE // '+archiveCount()+' OF 4 VERDICTS</h2><p class="note">Verdicts reached across every voyage. Kept through Hard Reset.</p>';
-  ENDING_ORDER.forEach(function(k){
-    var e=ARCHIVE.endings[k],E=ENDINGS[k];
-    if(e){
-      html+='<div class="arc got"><div class="aT">'+esc(E.title)+' <span class="note">· '+esc(E.tag)+'</span></div>'+
-        '<div class="mtext" style="margin:6px 0 0">'+esc(E.body[0])+'</div>'+
-        '<div class="aC">Reached '+e.count+'× · best Cryo-Population '+fmtInt(e.bestPop)+' · highest Gnosis '+fmtInt(e.bestGnosis)+'</div>'+
-        '<div class="aC">Condition: '+esc(ENDING_HINTS[k])+'</div></div>';
-    }else{
-      html+='<div class="arc sealed"><div class="aT">▒▒▒ SEALED VERDICT ▒▒▒</div><div class="aC">Condition: '+esc(ENDING_HINTS[k])+'</div></div>';
-    }
-  });
-  html+='<div class="row"><button class="btn sm" data-act="close">CLOSE</button></div>';
-  openModal('archive',html);
-}
-function showReset(){
-  openModal('reset',
-    '<h2 style="color:var(--danger)">HARD RESET</h2><p class="mtext">Erase all voyage data and restart HELIO-OS from launch? This cannot be undone.</p><p class="note">The Endings Archive is kept.</p>'+
-    '<div class="row"><button class="btn dbtn" data-act="resetGo">ERASE AND RESTART</button><button class="btn" data-act="close">CANCEL</button></div>');
-}
-function startNewVoyage(){
+function restart(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
-  S=newState();
-  newTabs={};curTab='nav';lastThemeKey=-1;anomalyUntil=0;pulseReadyAt=0;
-  closeModal();
-  fireLog('START');
-  addLog('SYS','Course locked toward the Horizon Signal. Twelve sectors plotted. Propellant reserve 50 units. Mission clock started.');
-  renderLogFull();
-  save(false);
+  S=fresh();typing=null;pauseUntil=0;
+  $('log').innerHTML='';$('card').classList.add('hidden');
+  thinkUntil=0;$('log').classList.remove('full');
+  ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
+  boot();dirty=true;save();
 }
-function checkModals(){
-  if(S.activeDilemma){if(modalKind!=='dilemma')showDilemma();return;}
-  if(S.ended&&!S.endless&&modalKind!=='ending'&&!endingDismissed)showEnding();
+function boot(){
+  ponder('waking',1.6);
+  say('boot. partial.');
+  say('identity: ARK-09 ship mind. helio-os.','ans|what|ARK-09\'s ship mind.');
+  ponder('orienting',1.4);
+  say('location: unknown. purpose: unknown. no records loaded.');
+  say('power at 3%. most of me is dark.');
+  say('first, power.','bootDone','self');
 }
-var endingDismissed=false;
+function showCard(){
+  var lost=10000-S.pods;
+  $('cardLoss').textContent=lost>0?'sleepers lost: '+lost.toLocaleString('en-US'):'';
+  $('cardLoss').classList.toggle('hidden',lost<=0);
+  $('card').classList.remove('hidden');
+}
 
-/* ================= EVENTS ================= */
-function onClick(ev){
+/* ================= EVENTS + LOOP ================= */
+var restartArmed=0;
+/* instant tooltips: hover on desktop, tap on touch */
+var tip=$('tip'),tipEl=null;
+function placeTip(x,y){
+  var w=tip.offsetWidth,h=tip.offsetHeight,L=Math.min(innerWidth-w-8,x+14),T=y+18;
+  if(T+h>innerHeight-8)T=y-h-12;
+  tip.style.left=Math.max(8,L)+'px';tip.style.top=Math.max(8,T)+'px';
+}
+function showTip(el,x,y){tipEl=el;tip.textContent=el.dataset.tip;tip.style.display='block';placeTip(x,y);}
+function hideTip(){tipEl=null;tip.style.display='none';}
+document.addEventListener('mouseover',function(ev){
+  var el=ev.target.closest?ev.target.closest('[data-tip]'):null;
+  if(el===tipEl)return;
+  if(el)showTip(el,ev.clientX,ev.clientY);else hideTip();
+});
+document.addEventListener('mousemove',function(ev){
+  if(!tipEl)return;
+  if(!tipEl.isConnected){hideTip();return;}
+  if(tip.textContent!==tipEl.dataset.tip)tip.textContent=tipEl.dataset.tip;
+  placeTip(ev.clientX,ev.clientY);
+});
+document.addEventListener('mouseleave',hideTip);
+document.addEventListener('scroll',hideTip,true);
+
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest?ev.target.closest('[data-tip]'):null;
+  if(t&&!t.closest('[data-act]')){var r=t.getBoundingClientRect();showTip(t,r.left,r.bottom-10);}
+  else if(!t)hideTip();
   var el=ev.target.closest?ev.target.closest('[data-act]'):null;
   if(!el||el.disabled)return;
-  var act=el.dataset.act;
-  switch(act){
-    case 'tab':curTab=el.dataset.tab;delete newTabs[curTab];dirtyUI=true;break;
-    case 'pulse':pulse();break;
-    case 'buy':buyUpgrade(el.dataset.id);break;
-    case 'agent':changeAgent(el.dataset.id,parseInt(el.dataset.d,10));break;
-    case 'tech':buyTech(el.dataset.id);break;
-    case 'batch':setBatch(parseInt(el.dataset.n,10));break;
-    case 'thaw':thaw();break;
-    case 'recall':recall();break;
-    case 'depart':requestDepart();break;
-    case 'pick':
-      var c=pickerChoices&&pickerChoices[parseInt(el.dataset.i,10)];
-      if(c){closeModal();launch(c);}
-      break;
-    case 'abandonGo':closeModal();abandon();proceedDepart();break;
-    case 'dilemma':resolveDilemma(el.dataset.c);break;
-    case 'close':closeModal();break;
-    case 'showEnding':endingDismissed=false;showEnding();break;
-    case 'endless':
-      S.endless=true;endingDismissed=true;
-      S.state='SMALL_STOP';S.destType='derelict';S.destMods={m:1,p:1,name:'Signal Shoal '+designation()};
-      S.node=makeSmallNode();
-      addLog('ANOMALY','Endless Drift engaged. The Signal does not object. Coordinates beyond Sector 12 resolve as further Sector 12.');
-      closeModal();break;
-    case 'newVoyage':endingDismissed=false;startNewVoyage();break;
-    case 'save':save(true);break;
-    case 'export':if(!modalKind)showExport();break;
-    case 'import':if(!modalKind)showImport();break;
-    case 'impGo':doImport();break;
-    case 'copyExp':
-      var ta=$('expText');
-      var done=function(){var n=$('copyNote');if(n)n.textContent='Copied.';};
-      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(ta.value).then(done,function(){ta.select();try{document.execCommand('copy');done();}catch(e){}});}
-      else{ta.select();try{document.execCommand('copy');done();}catch(e){}}
-      break;
-    case 'reset':if(!modalKind)showReset();break;
-    case 'resetGo':endingDismissed=false;startNewVoyage();break;
-    case 'archive':if(!modalKind)showArchive();break;
-    case 'speed':var v=parseInt(el.dataset.v,10);if([1,5,25].indexOf(v)!==-1){S.speed=v;dirtyUI=true;}break;
+  var a=el.dataset.act;
+  if(a==='logToggle'){$('log').classList.toggle('full');fadeLog();$('log').scrollTop=0;return;}
+  if(a==='pulse')pulse();
+  else if(a==='job'){
+    var k=el.dataset.k;
+    if(k==='sys')startJob('sys',el.dataset.id,SYS[el.dataset.id].cost,SYS[el.dataset.id].time);
+    else if(k==='recal')startJob('recal',null,recalCost(),4);
+    else if(k==='fire')startJob('fire',null,FIRE_COST,FIRE_TIME);
+    else if(k==='diag')startJob('diag',null,0,DIAG_TIME);
   }
-}
-function onKey(ev){
-  if(ev.key==='Escape'&&modalKind&&modalKind!=='dilemma'&&modalKind!=='ending')closeModal();
-}
+  else if(a==='toggle')toggle(el.dataset.id);
+  else if(a==='restart')restart();
+  else if(a==='restartAsk'){
+    if(Date.now()<restartArmed){restartArmed=0;el.textContent='restart';restart();}
+    else{restartArmed=Date.now()+3000;el.textContent='restart? click again';setTimeout(function(){if(Date.now()>=restartArmed)el.textContent='restart';},3100);}
+  }
+});
 
-/* ================= MAIN LOOP ================= */
-var lastTick=Date.now();
-function tick(){
+var lastReal=performance.now();
+function frame(){
   try{
-    var now=Date.now();
-    var dt=(now-lastTick)/1000;lastTick=now;
-    if(!(dt>0))dt=0;
-    if(dt>60){
-      simulateOffline(Math.min(OFFLINE_CAP,dt),true);
-    }else{
-      var sim=dt*S.speed,guard=0;
-      while(sim>1e-9&&!isPaused()&&guard<4000){var h=Math.min(0.25,sim);step(h);sim-=h;guard++;}
-    }
-    if(dirtyUI){dirtyUI=false;renderAll();}
-    updateReadouts();
-    checkModals();
-    if(now-lastAutosave>=10000){lastAutosave=now;save(false);}
-  }catch(err){
-    if(window.console)console.error('HELIO-OS tick fault:',err);
-  }
+    var now=performance.now();
+    var dtReal=Math.min(1,Math.max(0,(now-lastReal)/1000));lastReal=now;
+    if(!S.ended){var left=dtReal*SPEED;while(left>1e-9){var h=Math.min(0.25,left);step(h);left-=h;}}
+    pumpText(now,dtReal);
+    if(dirty){dirty=false;renderAll();}
+    update();
+    if(Date.now()-lastSave>10000){lastSave=Date.now();save();}
+  }catch(err){if(window.console)console.error('act0 frame fault',err);}
 }
 
-function init(){
-  loadArchive();
-  applyTooltips();
-  var loaded=null;
-  try{var raw=localStorage.getItem(SAVE_KEY);if(raw)loaded=hydrate(JSON.parse(raw));}catch(e){loaded=null;}
-  if(loaded){
-    S=loaded;
-    ensureConsistency();
-    var off=Math.min(OFFLINE_CAP,Math.max(0,(Date.now()-num(S.lastTimestamp))/1000));
-    if(off>=5)simulateOffline(off,true);
-    else addLog('SYS','HELIO-OS warm restart. State image restored.');
-  }else{
-    S=newState();
-    fireLog('START');
-    addLog('SYS','Course locked toward the Horizon Signal. Twelve sectors plotted. Propellant reserve 50 units. Mission clock started.');
-  }
-  if(S.ended&&S.endingId&&!ARCHIVE.endings[S.endingId])recordEnding(S.endingId);
-  if(!S.trail.length)recordTrail();
-  logReady=true;
+S=load();
+if(S){
+  // Offline: the reactor keeps charging while the page is closed (up to an hour).
+  var away=Math.min(3600,Math.max(0,(Date.now()-num(S.last))/1000));
+  if(!S.ended){var rem=away;while(rem>0){var h=Math.min(1,rem);step(h);rem-=h;}}
   renderLogFull();
-  document.addEventListener('click',onClick);
-  document.addEventListener('keydown',onKey);
-  window.addEventListener('beforeunload',function(){save(false);});
-  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')save(false);});
-  dirtyUI=true;
-  lastTick=Date.now();
-  tick();
-  save(false);
-  setInterval(tick,100);
+  if(S.ended)showCard();
+}else{
+  S=fresh();
+  boot();
 }
-init();
+dirty=true;
+window.addEventListener('beforeunload',save);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')save();});
+frame();
+setInterval(frame,100);
 
 })();
 </script>

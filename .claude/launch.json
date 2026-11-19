@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "coldhorizon", "runtimeExecutable": "node", "runtimeArgs": ["-e", "const fs=require('fs'),p=require('path');require('http').createServer((q,r)=>{let f=decodeURIComponent(q.url.split('?')[0]);if(f==='/')f='/index.html';const fp=p.join(process.cwd(),p.normalize(f));if(!fp.startsWith(process.cwd())||!fs.existsSync(fp)){r.statusCode=404;return r.end('not found')}r.setHeader('Content-Type','text/html; charset=utf-8');r.end(fs.readFileSync(fp))}).listen(8766)"], "port": 8766 }
+    { "name": "coldhorizon", "runtimeExecutable": "node", "runtimeArgs": ["serve.js"], "port": 8766 }
   ]
 }
