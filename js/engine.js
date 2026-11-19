@@ -16,8 +16,7 @@ if(params.has('reset')){try{localStorage.removeItem(SAVE_KEY);localStorage.remov
 /* ================= THE VOYAGE: every act and its branches =================
    The decision tree reads this. Only what the player has found is named; the rest stays "?". */
 var ACTS=[
-  {n:'0',name:'DARK',nodes:[
-    {id:'hold',q:'the cryo hold',opts:[{id:'kept',t:'all 10,000 kept cold'},{id:'lost',t:'sleepers let warm'}]}]},
+  {n:'0',name:'DARK',nodes:[]}, // waking and learning: no branches until Act II
   {n:'I',name:'DRIFT',nodes:[]},
   {n:'II',name:'THE FORK',nodes:[
     {id:'d1',q:'mass shedding',opts:[{id:'shed',t:'jettison block g'},{id:'keep',t:'keep block g'}]}]},

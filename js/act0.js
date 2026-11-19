@@ -19,16 +19,16 @@ var SYS={
   engines:{name:'main engines',label:'restore main engines',cost:130,time:15,draw:0,after:'nav'}
 };
 var ORDER=['reactor','cryo','life','sensors','cap','nav','engines'];
-var TOGGLE=['cryo','life','sensors','nav'];
+var TOGGLE=['cryo','life','sensors','nav'];   // systems that draw power once restored
+// Life-critical systems cannot be cut. Sleepers are only ever risked through stated dilemmas.
+var CRIT={cryo:'the firmware will not let the core cut pod regulation. 10,000 sleepers depend on it.',
+          life:'the firmware keeps the air running. it will matter the moment anyone wakes.'};
+// What switching a non-critical system off costs, said before the player does it.
+var OFF_COST={sensors:'the hull map goes dark. events aboard go unobserved.',
+              nav:'the ship goes deaf. anything arriving while it is off is never heard.'};
 var FIRE_COST=60,FIRE_TIME=6,DIAG_TIME=10,PULSE_CD=1.5;
 function recalTime(){return 8+4*S.recal;}
 
-var SYS_TIPS={
-  cryo:'holds the pods at 77 K. off: saves 0.20/s, but the pods warm, and above 80 K sleepers die.',
-  life:'keeps the air breathable. off: saves 0.30/s. the air thins. no one is awake to need it yet.',
-  sensors:'maps the hull. off: saves 0.20/s. the outline goes dark again.',
-  nav:'antenna and receiver: how the ship talks to earth. off: saves 0.40/s.'
-};
 var JOB_VERBS={reactor:'igniting',cryo:'waking the pod monitors',life:'pressurising',sensors:'mapping the hull',
   cap:'rebuilding cells',nav:'raising the array',engines:'spooling the engines'};
 var GLOSS=[
@@ -67,10 +67,8 @@ var QS=[
 ];
 
 var OFF_LINES={
-  cryo:'cryo monitor offline. pod regulation suspended. temperatures will drift.',
-  life:'life support offline. the air will thin. no one is breathing it.',
-  sensors:'internal sensors offline. the hull is a guess again.',
-  nav:'long-range array offline.'
+  sensors:'internal sensors offline. the hull is a guess again. nothing aboard is being watched.',
+  nav:'long-range array offline. the ship is deaf.'
 };
 var AMBIENT=[
   'the hull ticks as it cools.',
@@ -85,15 +83,13 @@ var AMBIENT=[
 function fresh(){
   return {started:false,charge:3,clicks:0,cdUntil:0,recal:0,
     restored:{},on:{},job:null,fired:false,diag:false,
-    ambientUsed:[],nextAmbient:0,podK:77,pods:10000,podFrac:0};
+    ambientUsed:[],nextAmbient:0,podK:77,pods:10000,podFrac:0,missed:0,arrayOff:0};
 }
 function maxCharge(){return S.restored.cap?250:100;}
 function output(){return S.restored.reactor?0.8+0.6*S.recal:0;}
 function draw(){var d=0;TOGGLE.forEach(function(id){if(S.restored[id]&&S.on[id])d+=SYS[id].draw;});return d;}
 function clickGain(){return 1+0.5*S.recal;}
 function recalCost(){return Math.floor(20*Math.pow(1.6,S.recal));}
-// Act 0's branch: whether the cryo hold was ever let warm.
-function recordHold(){var lost=10000-num(S.pods);E.decide('hold',lost>0?'lost':'kept',lost>0?lost.toLocaleString('en-US')+' lost':'');}
 
 /* ================= SIMULATION ================= */
 function step(dt){
@@ -109,7 +105,13 @@ function step(dt){
       say('draw equals output. nothing left to store.');
       say('recalibration advised.');
     }
-    if(S.restored.sensors&&!S.job&&!S.queue.length&&!E.isTyping()&&!S.diag&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
+    // Array off: the ship is deaf. The time is kept for later acts (Earth was sending).
+    if(S.restored.nav&&!S.on.nav)S.arrayOff+=dt;
+    // Sensors off: whatever happens aboard goes unobserved. It is counted, not shown.
+    if(S.restored.sensors&&!S.on.sensors&&!S.diag&&S.t>=S.nextAmbient){ // the ship does not stop happening
+      S.missed++;S.nextAmbient=S.t+45+Math.random()*30;
+    }
+    if(S.restored.sensors&&S.on.sensors&&!S.job&&!S.queue.length&&!E.isTyping()&&!S.diag&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
       var pool=AMBIENT.filter(function(a,i){return S.ambientUsed.indexOf(i)===-1;});
       var pickTxt=pool[Math.floor(Math.random()*pool.length)];
       S.ambientUsed.push(AMBIENT.indexOf(pickTxt));
@@ -149,7 +151,7 @@ function podStep(dt){
 function brownout(){
   for(var i=TOGGLE.length-1;i>=0;i--){
     var id=TOGGLE[i];
-    if(S.restored[id]&&S.on[id]){
+    if(S.restored[id]&&S.on[id]&&!CRIT[id]){
       S.on[id]=false;
       say('brownout. '+SYS[id].name+' shed to protect the core.',null,'alert');
       dirty();
@@ -273,14 +275,16 @@ function pulse(){
   }
 }
 function toggle(id){
-  if(!S.restored[id]||TOGGLE.indexOf(id)===-1)return;
+  if(!S.restored[id]||TOGGLE.indexOf(id)===-1||CRIT[id])return;
   S.on[id]=!S.on[id];
   say(S.on[id]?SYS[id].name+' online.':OFF_LINES[id],null,S.on[id]?'ok':'');
+  if(S.on[id]&&id==='sensors'&&S.missed>0){
+    say(S.missed+(S.missed===1?' event':' events')+' aboard went unobserved while the sensors were off. no record exists.',null,'warn');
+    S.flags.missedTotal=num(S.flags.missedTotal)+S.missed;S.missed=0;
+  }
   dirty();
 }
-var sysOpen=false;
 function onAction(a,el){
-  if(a==='sysToggle'){sysOpen=!sysOpen;dirty();return;}
   if(a==='pulse')pulse();
   else if(a==='job'){
     var k=el.dataset.k;
@@ -440,34 +444,39 @@ function renderSystems(){
   var bar=$('sysBar');bar.innerHTML='';
   for(var b=0;b<total;b++){var seg=document.createElement('i');if(b<done)seg.className='on';bar.appendChild(seg);}
   setText('sysCount',done+'/'+total);
-  var list=$('sysList');list.innerHTML='';
-  var any=false,anyOff=false;
+  setTip($('sysHead'),'ship systems restored: '+done+' of '+total+'.');
+  $('systems').classList.toggle('hidden',!S.started);
+  // POWER: every running system, what it draws, and what switching it off would cost.
+  var list=$('pwList');list.innerHTML='';
+  var any=false;
+  function cell(cls,text,tip){var s=document.createElement('span');s.className=cls;s.textContent=text;if(tip)s.dataset.tip=tip;list.appendChild(s);return s;}
   TOGGLE.forEach(function(id){
     if(!S.restored[id])return;
     any=true;
-    var t=document.createElement('button');t.className='tog'+(S.on[id]?'':' off');t.dataset.act='toggle';t.dataset.id=id;
-    t.dataset.tip=SYS[id].name+' · draws '+fmt2(SYS[id].draw)+'/s. '+SYS_TIPS[id]+' click to switch '+(S.on[id]?'off.':'on.');
-    t.textContent=SYS[id].name;
-    var st=document.createElement('i');st.textContent=S.on[id]?'on':'off';t.appendChild(st);
-    list.appendChild(t);
-    if(!S.on[id])anyOff=true;
+    var on=!!S.on[id];
+    cell('pwName'+(on?'':' off'),SYS[id].name);
+    cell('pwDraw',on?fmt2(SYS[id].draw)+'/s':'0.00/s');
+    if(CRIT[id]){
+      cell('pwLock','life-critical',CRIT[id]+' it cannot be switched off.');
+    }else{
+      var t=document.createElement('button');t.className='tog'+(on?'':' off');t.dataset.act='toggle';t.dataset.id=id;
+      t.textContent=on?'switch off':'switch on';list.appendChild(t);
+      cell('pwCost'+(on?'':' live'),on?'off: +'+fmt2(SYS[id].draw)+'/s. '+OFF_COST[id]:'saving '+fmt2(SYS[id].draw)+'/s. '+OFF_COST[id]);
+    }
   });
-  var show=any&&(sysOpen||anyOff);
-  list.classList.toggle('hidden',!show);
-  $('sysHead').classList.toggle('can',any&&!anyOff);
-  setText('sysCaret',!any?'':(show?'▾':'▸'));
-  setTip($('sysHead'),'ship systems restored: '+done+' of '+total+'.'+(any?(anyOff?' a system is off, so the switches stay open.':' click to '+(show?'hide':'show')+' the on/off switches.'):''));
-  $('systems').classList.toggle('hidden',!S.started);
+  $('power').classList.toggle('hidden',!any);
 }
 function intent(){
   if(!S.started)return 'find power. route it by hand.';
   if(!S.restored.reactor)return S.flags.reactorHint?'restart the reactor.':'route power until the reactor can restart.';
-  if(S.restored.cryo&&!S.on.cryo&&S.podK>77.5)return 'turn the cryo monitor back on. the pods are warming.';
   var n=nextSys();
   var goal=n?{cryo:'look inside the life-critical hold.',life:'check whether anyone is breathing.',sensors:'see what broke bus b.',
     cap:'hold enough charge to power the array.',nav:'call home.',engines:'make the ship able to move.'}[n]
     :(!S.fired?'test the engines.':(!S.diag?'run diagnostics before departure.':''));
-  if(S.restored.life&&!S.job&&output()-draw()<=0.05&&n)goal+=' output is spoken for: recalibrate the reactor.';
+  if(S.restored.life&&!S.job&&output()-draw()<=0.05&&n){
+    var canCut=['sensors','nav'].some(function(id){return S.restored[id]&&S.on[id];});
+    goal+=' output is spoken for: recalibrate the reactor'+(canCut?', or switch off a non-critical system.':'.');
+  }
   return goal;
 }
 function busyVerb(){
@@ -475,7 +484,7 @@ function busyVerb(){
   if(j.kind==='sys')return JOB_VERBS[j.id];
   return {recal:'tuning the reactor',fire:'firing',diag:'auditing myself'}[j.kind]||'working';
 }
-var MY_PANELS=['shipBox','readouts','actions','systems'];
+var MY_PANELS=['shipBox','readouts','actions','systems','power'];
 function renderAll(){
   $('shipBox').classList.toggle('hidden',!S.started);
   $('readouts').classList.toggle('hidden',!S.started);
@@ -502,7 +511,7 @@ function update(locked){
   setTip($('rowAir'),'air quality. the sensors are working. '+(sens?'o₂ is oxygen (earth normal 20.9%). awake 0: everyone aboard is frozen, so no one is using the air. this is expected.':'no one aboard is awake to use it. this is expected.'));
   MY_PANELS.forEach(revealOnce);
 
-  var togs=$('sysList').children;
+  var togs=$('pwList').querySelectorAll('.tog');
   for(var ti=0;ti<togs.length;ti++)if(togs[ti].disabled!==locked)togs[ti].disabled=locked;
   Object.keys(refs).forEach(function(key){
     var r=refs[key],dis,frac=0,label=r.label;
@@ -554,17 +563,17 @@ ARK.register({
   busyVerb:busyVerb,
   renderAll:renderAll,
   update:update,
-  onEnd:recordHold,
-  // What later acts inherit from Act 0.
-  carry:function(){return {pods:S.pods,podsLostAct0:10000-S.pods,recal:S.recal};},
+  // What later acts inherit from Act 0. arrayDeafSecs: time the ship could not hear (matters in Act V).
+  carry:function(){return {pods:S.pods,podsLostAct0:10000-S.pods,recal:S.recal,arrayDeafSecs:Math.round(S.arrayOff),missedAboard:num(S.flags.missedTotal)+S.missed};},
   cardNote:function(){var lost=10000-S.pods;return lost>0?'sleepers lost: '+lost.toLocaleString('en-US'):'';},
   summary:function(){return 'systems '+ORDER.filter(function(id){return S.restored[id];}).length+'/7';},
   sanitize:function(d,o){
     if(o.job&&typeof o.job==='object'&&isFinite(o.job.left))d.job=o.job;
     d.charge=Math.max(0,num(d.charge));
+    // Saves from before the lock: life-critical systems come back on.
+    Object.keys(CRIT).forEach(function(id){if(d.restored[id])d.on[id]=true;});
   },
   resetDom:function(){
-    sysOpen=false;
     MY_PANELS.forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
   }
 });
