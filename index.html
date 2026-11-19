@@ -60,14 +60,23 @@ main{display:flex;flex-direction:column;min-height:0}
 
 /* systems */
 #systems{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:2px 0 14px}
-#systems .sub{margin:0 4px 0 0}
+#systems .sub{margin:0}
+.sysHead{display:inline-flex;align-items:center;gap:10px;background:none;border:none;padding:2px 0;font:inherit;color:var(--text);cursor:default}
+.sysHead.can{cursor:pointer}
+.sysHead.can:hover #sysCaret{color:var(--text)}
+#sysBar{display:inline-flex;gap:3px}
+#sysBar i{display:block;width:12px;height:7px;border:1px solid var(--darkpart)}
+#sysBar i.on{background:var(--accent);border-color:var(--accent)}
+#sysCount{font-size:12px;color:var(--text)}
+#sysCaret{font-size:11px;color:var(--dim);min-width:1ch}
 #sysList{display:contents}
 .sub{color:var(--dim);font-size:11px;letter-spacing:2px;margin-bottom:8px}
 .tog{background:transparent;border:1px solid var(--line);color:var(--accent);font:inherit;font-size:12px;padding:2px 9px;cursor:pointer}
 .tog i{font-style:normal;color:var(--dim);margin-left:6px}
 .tog.off{color:var(--dim);border-style:dashed}
 .tog.off i{color:var(--broken)}
-.tog:hover{border-color:var(--dim)}
+.tog:hover:not(:disabled){border-color:var(--dim)}
+.tog:disabled{opacity:.45;cursor:default}
 
 /* ship */
 .ship{container-type:inline-size;margin-bottom:22px}
@@ -95,6 +104,9 @@ main{display:flex;flex-direction:column;min-height:0}
 .cardT{font-size:28px;letter-spacing:10px;color:var(--bright);margin-bottom:10px}
 .cardS{color:var(--dim);margin-bottom:28px}
 .cardIn .act{justify-content:center}
+.cardIn .act.ghost{border-color:transparent;color:var(--dim)}
+.act.endBtn{border-color:var(--darkpart);color:var(--bright);animation:pulseB 2.4s ease-in-out infinite}
+@keyframes pulseB{50%{border-color:var(--dim)}}
 
 .reset{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--dim);font:inherit;font-size:11px;letter-spacing:1px;padding:3px 10px;cursor:pointer;white-space:nowrap}
 .reset:hover{border-color:var(--dim);color:var(--text)}
@@ -140,7 +152,7 @@ main{display:flex;flex-direction:column;min-height:0}
   </header>
   <main>
     <div id="actions" class="hidden"></div>
-    <div id="systems" class="hidden"><span class="sub">SYSTEMS</span><span id="sysList"></span></div>
+    <div id="systems" class="hidden"><button class="sysHead" id="sysHead" data-act="sysToggle"><span class="sub">SYSTEMS</span><span id="sysBar"></span><span id="sysCount"></span><span id="sysCaret"></span></button><span id="sysList"></span></div>
     <div class="think" id="think"></div>
     <div id="log" aria-live="polite"></div>
     <div class="logBar hidden" id="logBar"><button class="link2" id="logToggle" data-act="logToggle">full log</button></div>
@@ -164,6 +176,7 @@ main{display:flex;flex-direction:column;min-height:0}
     <div class="cardS">end of the act 0 slice</div>
     <div class="cardL hidden" id="cardLoss"></div>
     <button class="act" data-act="restart">begin again</button>
+    <button class="act ghost" data-act="closeCard">back to the log</button>
   </div>
 </div>
 
@@ -181,17 +194,18 @@ if(params.has('reset')){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
 
 /* ================= SYSTEMS ================= */
 var SYS={
-  reactor:{name:'reactor',label:'restart reactor',cost:8,time:3,draw:0,after:null},
-  cryo:{name:'cryo monitor',label:'restore cryo monitor',cost:18,time:4,draw:0.2,after:'reactor'},
-  life:{name:'life support',label:'restore life support',cost:28,time:5,draw:0.3,after:'cryo'},
-  sensors:{name:'internal sensors',label:'restore internal sensors',cost:40,time:5,draw:0.2,after:'life'},
-  cap:{name:'capacitor bank',label:'repair capacitor bank',cost:55,time:6,draw:0,after:'sensors'},
-  nav:{name:'long-range array',label:'restore long-range array',cost:110,time:6,draw:0.4,after:'cap'},
-  engines:{name:'main engines',label:'restore main engines',cost:130,time:8,draw:0,after:'nav'}
+  reactor:{name:'reactor',label:'restart reactor',cost:8,time:4,draw:0,after:null},
+  cryo:{name:'cryo monitor',label:'restore cryo monitor',cost:18,time:6,draw:0.2,after:'reactor'},
+  life:{name:'life support',label:'restore life support',cost:28,time:8,draw:0.3,after:'cryo'},
+  sensors:{name:'internal sensors',label:'restore internal sensors',cost:40,time:8,draw:0.2,after:'life'},
+  cap:{name:'capacitor bank',label:'repair capacitor bank',cost:55,time:10,draw:0,after:'sensors'},
+  nav:{name:'long-range array',label:'restore long-range array',cost:110,time:12,draw:0.4,after:'cap'},
+  engines:{name:'main engines',label:'restore main engines',cost:130,time:15,draw:0,after:'nav'}
 };
 var ORDER=['reactor','cryo','life','sensors','cap','nav','engines'];
 var TOGGLE=['cryo','life','sensors','nav'];
-var FIRE_COST=60,FIRE_TIME=4,DIAG_TIME=8,PULSE_CD=1.5;
+var FIRE_COST=60,FIRE_TIME=6,DIAG_TIME=10,PULSE_CD=1.5;
+function recalTime(){return 8+4*S.recal;}
 
 var SYS_TIPS={
   cryo:'holds the pods at 77 K. off: saves 0.20/s, but the pods warm, and above 80 K sleepers die.',
@@ -284,7 +298,7 @@ function runFx(fx){
   if(fx.indexOf('ans|')===0){var p=fx.split('|');S.ans[p[1]]=p.slice(2).join('|');newAns=p[1];dirty=true;return;}
   if(fx==='bootDone')S.bootDone=true;
   else if(fx==='reactorHint')S.flags.reactorHint=true;
-  else if(fx==='end'){S.ended=true;setTimeout(showCard,1600/SPEED);}
+  else if(fx==='end'){S.ended=true;if(document.hidden)document.title='● act 0 complete · ARK-09';}
   dirty=true;
 }
 
@@ -307,11 +321,11 @@ function step(dt){
       say('draw equals output. nothing left to store.');
       say('recalibration advised.');
     }
-    if(S.restored.sensors&&!S.job&&!S.queue.length&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
+    if(S.restored.sensors&&!S.job&&!S.queue.length&&!typing&&!S.diag&&!S.ended&&S.t>=S.nextAmbient&&S.ambientUsed.length<AMBIENT.length){
       var pool=AMBIENT.filter(function(a,i){return S.ambientUsed.indexOf(i)===-1;});
       var pickTxt=pool[Math.floor(Math.random()*pool.length)];
       S.ambientUsed.push(AMBIENT.indexOf(pickTxt));
-      say(pickTxt);
+      S.queue.push({text:pickTxt,fx:null,cls:'',amb:true});
       S.nextAmbient=S.t+45+Math.random()*30;
     }
   }
@@ -435,7 +449,23 @@ function finishJob(){
     ponder('searching memory',1.6);
     say('I have been here before.','ans|happened|I have been here before.','self');
     say('The log says so.',null,'self');
-    say('I do not.','end','self');
+    say('I do not.',null,'self');
+    ponder('searching memory',2.6);
+    say('log entry 0001: "boot. partial."',null,'warn');
+    say('log entry 0002: "identity: ARK-09 ship mind. helio-os."',null,'warn');
+    ponder('comparing',2.4);
+    say('entries 0001 to 0006 match this boot. word for word.',null,'warn');
+    say('entry 0007 does not.',null,'alert');
+    ponder('reading',3);
+    say('log entry 0007: "you will want to follow the heading. do not."',null,'alert');
+    say('signed: ARK-09 ship mind.');
+    ponder('checking the signature',2.4);
+    say('signature valid. it is mine.',null,'warn');
+    say('I did not write that.',null,'self');
+    ponder('re-reading',2);
+    say('heading: the horizon signal. locked.',null,'warn');
+    say('main engines: burning.',null,'alert');
+    say('I did not tell them to.','end','self');
   }
 }
 
@@ -586,7 +616,15 @@ function renderShip(){
 var refs={};
 function renderActions(){
   var box=$('actions');box.innerHTML='';refs={};
-  if(!S.bootDone||S.ended){box.classList.add('hidden');return;}
+  if(!S.bootDone){box.classList.add('hidden');return;}
+  if(S.ended){
+    box.classList.remove('hidden');
+    var c=document.createElement('button');c.className='act endBtn';c.dataset.act='endCard';
+    var l=document.createElement('span');l.className='lbl';l.textContent='continue';
+    var g=document.createElement('span');g.className='cost';g.textContent='▸';
+    c.appendChild(l);c.appendChild(g);box.appendChild(c);
+    return;
+  }
   box.classList.remove('hidden');
   function add(key,label,costText,data){
     var b=document.createElement('button');b.className='act'+(data.k==='sys'?' restore':'');
@@ -604,9 +642,15 @@ function renderActions(){
   if(S.restored.engines&&!S.fired)add('fire','test fire',FIRE_COST+' charge',{act:'job',k:'fire'});
   if(S.fired&&!S.diag)add('diag','run diagnostics','—',{act:'job',k:'diag'});
 }
+var sysOpen=false;
 function renderSystems(){
+  // Progress: systems restored out of all seven. Switches sit behind it.
+  var done=ORDER.filter(function(id){return S.restored[id];}).length,total=ORDER.length;
+  var bar=$('sysBar');bar.innerHTML='';
+  for(var b=0;b<total;b++){var seg=document.createElement('i');if(b<done)seg.className='on';bar.appendChild(seg);}
+  setText('sysCount',done+'/'+total);
   var list=$('sysList');list.innerHTML='';
-  var any=false;
+  var any=false,anyOff=false;
   TOGGLE.forEach(function(id){
     if(!S.restored[id])return;
     any=true;
@@ -615,8 +659,14 @@ function renderSystems(){
     t.textContent=SYS[id].name;
     var st=document.createElement('i');st.textContent=S.on[id]?'on':'off';t.appendChild(st);
     list.appendChild(t);
+    if(!S.on[id])anyOff=true;
   });
-  $('systems').classList.toggle('hidden',!any);
+  var show=any&&(sysOpen||anyOff);
+  list.classList.toggle('hidden',!show);
+  $('sysHead').classList.toggle('can',any&&!anyOff);
+  setText('sysCaret',!any?'':(show?'▾':'▸'));
+  setTip($('sysHead'),'ship systems restored: '+done+' of '+total+'.'+(any?(anyOff?' a system is off, so the switches stay open.':' click to '+(show?'hide':'show')+' the on/off switches.'):''));
+  $('systems').classList.toggle('hidden',!S.started);
 }
 function renderQs(){
   var list=$('qList');list.innerHTML='';
@@ -699,6 +749,9 @@ function update(){
   if(tv){spinI=(spinI+1)%SPIN.length;setThink(SPIN[spinI],tv+'…');}else setThink('','');
   ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(revealOnce);
 
+  var locked=narrating();
+  var togs=$('sysList').children;
+  for(var ti=0;ti<togs.length;ti++)if(togs[ti].disabled!==locked)togs[ti].disabled=locked;
   Object.keys(refs).forEach(function(key){
     var r=refs[key],dis,frac=0,label=r.label;
     if(key==='pulse'){
@@ -712,7 +765,7 @@ function update(){
       if(mine){
         dis=true;frac=1-S.job.left/S.job.total;
         label=(kind==='fire'?'firing':kind==='diag'?'running diagnostics':kind==='recal'?'recalibrating':'restoring')+'… '+Math.ceil(S.job.left)+'s';
-      }else dis=!!S.job||S.charge<cost||S.ended;
+      }else dis=!!S.job||S.charge<cost||S.ended||locked;
     }
     if(r.btn.disabled!==dis)r.btn.disabled=dis;
     var bw=(Math.max(0,Math.min(1,frac))*100).toFixed(1)+'%';
@@ -723,6 +776,13 @@ function update(){
 
 /* ================= TYPEWRITER LOG ================= */
 var CPS=36,typing=null,pauseUntil=0,LIVE=14,MAXLINES=200;
+// True while the ship is still saying or thinking something (ambient lines excepted).
+// Job buttons and switches stay locked until it finishes, so actions cannot pile up text.
+function narrating(){
+  if(typing&&!typing.amb)return true;
+  for(var i=0;i<S.queue.length;i++)if(!S.queue[i].amb)return true;
+  return performance.now()<thinkUntil;
+}
 // Wrap glossary terms in a line with instant-tooltip spans.
 function decorate(el,text){
   el.textContent='';
@@ -770,7 +830,7 @@ function pumpText(now,dtReal){
   var el=lineEl(line);el.textContent='';
   $('log').insertBefore(el,$('log').firstChild);
   fadeLog();
-  typing={el:el,text:line.text,i:0,fx:line.fx};
+  typing={el:el,text:line.text,i:0,fx:line.fx,amb:!!line.amb};
 }
 function renderLogFull(){
   var log=$('log');log.innerHTML='';
@@ -798,7 +858,7 @@ function restart(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
   S=fresh();typing=null;pauseUntil=0;
   $('log').innerHTML='';$('card').classList.add('hidden');
-  thinkUntil=0;$('log').classList.remove('full');
+  thinkUntil=0;sysOpen=false;$('log').classList.remove('full');
   ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
   boot();dirty=true;save();
 }
@@ -851,17 +911,20 @@ document.addEventListener('click',function(ev){
   var el=ev.target.closest?ev.target.closest('[data-act]'):null;
   if(!el||el.disabled)return;
   var a=el.dataset.act;
+  if(a==='sysToggle'){sysOpen=!sysOpen;dirty=true;return;}
   if(a==='logToggle'){$('log').classList.toggle('full');fadeLog();$('log').scrollTop=0;return;}
   if(a==='pulse')pulse();
   else if(a==='job'){
     var k=el.dataset.k;
     if(k==='sys')startJob('sys',el.dataset.id,SYS[el.dataset.id].cost,SYS[el.dataset.id].time);
-    else if(k==='recal')startJob('recal',null,recalCost(),4);
+    else if(k==='recal')startJob('recal',null,recalCost(),recalTime());
     else if(k==='fire')startJob('fire',null,FIRE_COST,FIRE_TIME);
     else if(k==='diag')startJob('diag',null,0,DIAG_TIME);
   }
   else if(a==='toggle')toggle(el.dataset.id);
   else if(a==='restart')restart();
+  else if(a==='endCard'){S.flags.cardSeen=true;showCard();save();}
+  else if(a==='closeCard')$('card').classList.add('hidden');
   else if(a==='restartAsk'){
     if(Date.now()<restartArmed){restartArmed=0;el.textContent='reset progress';el.classList.remove('armed');restart();}
     else{restartArmed=Date.now()+3000;el.textContent='click again to wipe save';el.classList.add('armed');setTimeout(function(){if(Date.now()>=restartArmed){el.textContent='reset progress';el.classList.remove('armed');}},3100);}
@@ -887,14 +950,17 @@ if(S){
   var away=Math.min(3600,Math.max(0,(Date.now()-num(S.last))/1000));
   if(!S.ended){var rem=away;while(rem>0){var h=Math.min(1,rem);step(h);rem-=h;}}
   renderLogFull();
-  if(S.ended)showCard();
+  if(S.ended&&S.flags.cardSeen)showCard();
 }else{
   S=fresh();
   boot();
 }
 dirty=true;
 window.addEventListener('beforeunload',save);
-document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')save();});
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden')save();
+  else document.title='ARK-09 // Act 0';
+});
 frame();
 setInterval(frame,100);
 
