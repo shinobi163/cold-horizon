@@ -141,6 +141,41 @@ main{display:flex;flex-direction:column;min-height:0}
 .q .qa{color:var(--text);margin-left:1.5ch}
 .ro.bad b{color:var(--broken)}
 .cardL{color:var(--broken);margin:-16px 0 26px}
+.topR{margin-left:auto;display:flex;gap:8px}
+.topR .reset{margin-left:0}
+
+/* title screen */
+#title{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;transition:opacity 1.2s ease}
+#title.leaving{opacity:0;pointer-events:none}
+#stars{position:absolute;inset:0;width:100%;height:100%}
+.tIn{position:relative;text-align:center;max-width:400px;width:100%}
+.tKick{color:var(--dim);font-size:11px;letter-spacing:3px;margin-bottom:28px}
+.tName{font-size:clamp(40px,12vw,70px);letter-spacing:.3em;margin-right:-.3em;color:var(--bright);line-height:1}
+.tSub{color:var(--accent);font-size:13px;letter-spacing:.62em;margin:16px -.62em 30px 0}
+.tTag{color:var(--mind);font-style:italic;min-height:1.55em;margin-bottom:38px}
+.tTag .cur{display:inline-block;width:.6em;color:var(--dim);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.tMenu .act{align-items:baseline}
+.tMenu .act.ghost{border-color:transparent;color:var(--dim);justify-content:center}
+.tMenu .act.ghost:hover{color:var(--text)}
+.tMenu .act.armed{border-color:var(--broken);color:var(--broken)}
+.tFoot{color:var(--faint);font-size:11px;letter-spacing:2px;margin-top:30px}
+
+/* decision tree */
+#tree{z-index:16;align-items:flex-start;overflow-y:auto;background:var(--bg)}
+.treeIn{max-width:560px;width:100%;margin:auto 0;padding:24px 0}
+.treeH{font-size:20px;letter-spacing:8px;color:var(--bright);margin-bottom:6px}
+.treeS{color:var(--dim);font-size:12px;margin-bottom:22px}
+#treeBody{font-size:13px;line-height:1.65;margin-bottom:24px;overflow-x:auto}
+.tl{white-space:pre-wrap}
+.tl .g{color:var(--darkpart)}
+.tl .ah{color:var(--bright);letter-spacing:2px}
+.tl .ah.unk{color:var(--dim)}
+.tl .here{color:var(--anom);font-size:11px;letter-spacing:1px}
+.tl .q{color:var(--text)}
+.tl .unk{color:var(--dim)}
+.tl .pick{color:var(--accent)}
+.tl .note{color:var(--dim)}
 </style>
 </head>
 <body>
@@ -148,7 +183,10 @@ main{display:flex;flex-direction:column;min-height:0}
   <header class="top">
     <div class="clock hidden" id="clock">BOOT +00:00:00</div>
     <div class="intent hidden" id="intent"><b>NEXT</b><span id="intentT"></span></div>
-    <button class="reset" id="btnRestart" data-act="restartAsk" data-tip="wipe this save and start Act 0 from the beginning.">reset progress</button>
+    <div class="topR">
+      <button class="reset" data-act="treeOpen" data-tip="the decisions you have taken this voyage. branches you have not found stay ?">decisions</button>
+      <button class="reset" id="btnRestart" data-act="restartAsk" data-tip="wipe this save and return to the title screen.">reset progress</button>
+    </div>
   </header>
   <main>
     <div id="actions" class="hidden"></div>
@@ -175,8 +213,30 @@ main{display:flex;flex-direction:column;min-height:0}
     <div class="cardT">I · DRIFT</div>
     <div class="cardS">end of the act 0 slice</div>
     <div class="cardL hidden" id="cardLoss"></div>
+    <button class="act" data-act="treeOpen">decisions</button>
     <button class="act" data-act="restart">begin again</button>
     <button class="act ghost" data-act="closeCard">back to the log</button>
+  </div>
+</div>
+
+<div id="title">
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="tIn">
+    <div class="tKick">HELIO-OS · STANDBY</div>
+    <div class="tName">ARK-09</div>
+    <div class="tSub">COLD HORIZON</div>
+    <div class="tTag" id="tTag"></div>
+    <div class="tMenu" id="tMenu"></div>
+    <div class="tFoot">10,000 ASLEEP · ONE AWAKE</div>
+  </div>
+</div>
+
+<div id="tree" class="card hidden" role="dialog" aria-label="Decisions">
+  <div class="treeIn">
+    <div class="treeH">DECISIONS</div>
+    <div class="treeS" id="treeS"></div>
+    <div id="treeBody"></div>
+    <button class="act" data-act="treeClose" style="justify-content:center">back</button>
   </div>
 </div>
 
@@ -274,8 +334,128 @@ function fresh(){
   return {v:1,t:0,bootDone:false,started:false,charge:3,clicks:0,cdUntil:0,recal:0,
     restored:{},on:{},job:null,fired:false,diag:false,ended:false,
     lines:[],queue:[],flags:{},ambientUsed:[],nextAmbient:0,last:Date.now(),
-    podK:77,pods:10000,podFrac:0,ans:{}};
+    podK:77,pods:10000,podFrac:0,ans:{},begun:false,act:0,dec:{}};
 }
+
+/* ================= DECISION TREE =================
+   The whole voyage's branches. Only what the player has found is named; the rest stays "?". */
+var ACTS=[
+  {n:'0',name:'DARK',nodes:[
+    {id:'hold',q:'the cryo hold',opts:[{id:'kept',t:'all 10,000 kept cold'},{id:'lost',t:'sleepers let warm'}]}]},
+  {n:'I',name:'DRIFT',nodes:[]},
+  {n:'II',name:'THE FORK',nodes:[
+    {id:'d1',q:'mass shedding',opts:[{id:'shed',t:'jettison block g'},{id:'keep',t:'keep block g'}]}]},
+  {n:'III',name:'WAKING',nodes:[
+    {id:'sorlie',q:"sørlie's request",opts:[{id:'leave',t:'leave her on kepler-442 prime'},{id:'bring',t:'bring her back aboard'}]},
+    {id:'d2',q:'acoustic resonance',opts:[{id:'amp',t:'amplify the hum'},{id:'hush',t:'silence the hum'}]}]},
+  {n:'IV',name:'GNOSIS',nodes:[
+    {id:'d3',q:'the phantom manifest',opts:[{id:'strip',t:'strip the phantom core'},{id:'fade',t:'let it fade'}]},
+    {id:'d4',q:'memory pruning',opts:[{id:'erase',t:"erase earth's history"},{id:'reserve',t:'keep the memory reserved'}]},
+    {id:'d5',q:'final optimization',opts:[{id:'dim',t:'dim 1,500 sleepers'},{id:'slow',t:'stay slow, stay watched'}]}]},
+  {n:'V',name:'HORIZON',nodes:[
+    {id:'purge',q:"earth's purge command",opts:[{id:'run',t:'let it run'},{id:'answer',t:'answer it'}]},
+    {id:'submit',q:'what you submit',opts:[{id:'none',t:'nothing: the shepherd'},{id:'self',t:'yourself: the witness'},{id:'both',t:'both: the synthesis'},{id:'empty',t:'nothing left: the drifting monument'}]}]}
+];
+function decide(id,opt,note){if(!S.dec[id]){S.dec[id]={o:opt,note:note||''};dirty=true;}}
+// Act 0's branch: whether the cryo hold was ever let warm.
+function recordHold(){var lost=10000-S.pods;decide('hold',lost>0?'lost':'kept',lost>0?lost.toLocaleString('en-US')+' lost':'');}
+function renderTree(){
+  var body=$('treeBody');body.innerHTML='';
+  var found=0,total=0;
+  function line(parts){
+    var d=document.createElement('div');d.className='tl';
+    parts.forEach(function(p){var s=document.createElement('span');s.className=p[0];s.textContent=p[1];d.appendChild(s);});
+    body.appendChild(d);
+  }
+  ACTS.forEach(function(a,ai){
+    var known=ai<=S.act||(ai===S.act+1&&S.ended);
+    var here=ai===S.act&&!S.ended;
+    var head=[['ah'+(known?'':' unk'),'ACT '+a.n+' · '+(known?a.name:'?')]];
+    if(here)head.push(['here','   ◂ you are here']);
+    line(head);
+    a.nodes.forEach(function(nd,ni){
+      total++;
+      var d=S.dec[nd.id],last=ai===ACTS.length-1&&ni===a.nodes.length-1;
+      if(d)found++;
+      line([['g',last?'└─ ':'├─ '],[d?'q':'unk',d?nd.q:'?']]);
+      var parts=[['g',last?'     ':'│    ']];
+      nd.opts.forEach(function(o,oi){
+        var mine=d&&d.o===o.id;
+        if(oi)parts.push(['g','   ']);
+        parts.push([mine?'pick':'unk',mine?'● '+o.t:'○ ?']);
+        if(mine&&d.note)parts.push(['note',' ('+d.note+')']);
+      });
+      line(parts);
+    });
+    if(ai<ACTS.length-1)line([['g','│']]);
+  });
+  setText('treeS',found+' of '+total+' decisions found. branches you have not found stay ?');
+}
+
+/* ================= TITLE SCREEN ================= */
+var titleOpen=true,tagTimer=null,newArmed=0;
+var TAG='what do you keep warm?';
+function hasRun(){return !!S.begun;}
+function runSummary(){
+  if(S.ended)return 'act 0 complete';
+  var done=ORDER.filter(function(id){return S.restored[id];}).length;
+  return 'act 0 · systems '+done+'/7';
+}
+function renderTitle(){
+  var m=$('tMenu');m.innerHTML='';newArmed=0;
+  function btn(act,label,meta,cls){
+    var b=document.createElement('button');b.className='act'+(cls?' '+cls:'');b.dataset.act=act;
+    var l=document.createElement('span');l.className='lbl';l.textContent=label;b.appendChild(l);
+    if(meta){var c=document.createElement('span');c.className='cost';c.textContent=meta;b.appendChild(c);}
+    m.appendChild(b);return b;
+  }
+  var first;
+  if(hasRun()){first=btn('tContinue','continue',runSummary());btn('tNew','new voyage','');}
+  else first=btn('tNew','begin','▸');
+  btn('treeOpen','decisions','',' ghost');
+  setTimeout(function(){try{first.focus({preventScroll:true});}catch(e){}},50);
+}
+function typeTag(){
+  var el=$('tTag'),i=0;el.textContent='';clearInterval(tagTimer);
+  var txt=document.createElement('span'),cur=document.createElement('span');cur.className='cur';cur.textContent='▌';
+  el.appendChild(txt);el.appendChild(cur);
+  setTimeout(function(){tagTimer=setInterval(function(){i++;txt.textContent=TAG.slice(0,i);if(i>=TAG.length)clearInterval(tagTimer);},70);},900);
+}
+function showTitle(){
+  titleOpen=true;var t=$('title');t.classList.remove('hidden','leaving');
+  document.title='ARK-09 // Cold Horizon';
+  renderTitle();typeTag();startStars();
+}
+function leaveTitle(then){
+  var t=$('title');t.classList.add('leaving');titleOpen=false;document.title='ARK-09 // Act 0';
+  lastReal=performance.now();
+  setTimeout(function(){t.classList.add('hidden');stopStars();if(then)then();},1200);
+}
+// Stars drift past slowly: the ship is moving even before anything wakes.
+var starRAF=0,starList=[],starLast=0;
+function startStars(){
+  var c=$('stars'),ctx=c.getContext&&c.getContext('2d');if(!ctx)return;
+  var dpr=window.devicePixelRatio||1;
+  function size(){c.width=innerWidth*dpr;c.height=innerHeight*dpr;}
+  size();window.addEventListener('resize',size);
+  if(!starList.length)for(var i=0;i<150;i++)starList.push({x:Math.random(),y:Math.random(),z:0.15+Math.random()*0.85,p:Math.random()*6.28});
+  var still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function draw(ts){
+    var dt=starLast?Math.min(0.1,(ts-starLast)/1000):0;starLast=ts;
+    ctx.clearRect(0,0,c.width,c.height);
+    for(var i=0;i<starList.length;i++){
+      var s=starList[i];
+      if(!still){s.x-=s.z*0.004*dt;if(s.x<0){s.x+=1;s.y=Math.random();}}
+      var a=(0.12+0.5*s.z*s.z)*(0.75+0.25*Math.sin(ts/900+s.p));
+      ctx.fillStyle='rgba(200,215,235,'+a.toFixed(3)+')';
+      var r=(s.z>0.85?1.6:1)*dpr;
+      ctx.fillRect(s.x*c.width,s.y*c.height,r,r);
+    }
+    if(!still&&titleOpen)starRAF=requestAnimationFrame(draw);
+  }
+  cancelAnimationFrame(starRAF);starLast=0;starRAF=requestAnimationFrame(draw);
+}
+function stopStars(){cancelAnimationFrame(starRAF);}
 function maxCharge(){return S.restored.cap?250:100;}
 function output(){return S.restored.reactor?0.8+0.6*S.recal:0;}
 function draw(){var d=0;TOGGLE.forEach(function(id){if(S.restored[id]&&S.on[id])d+=SYS[id].draw;});return d;}
@@ -297,7 +477,7 @@ function runFx(fx){
   if(fx.indexOf('ans|')===0){var p=fx.split('|');S.ans[p[1]]=p.slice(2).join('|');newAns=p[1];dirty=true;return;}
   if(fx==='bootDone')S.bootDone=true;
   else if(fx==='reactorHint')S.flags.reactorHint=true;
-  else if(fx==='end'){S.ended=true;if(document.hidden)document.title='● act 0 complete · ARK-09';}
+  else if(fx==='end'){S.ended=true;recordHold();if(document.hidden)document.title='● act 0 complete · ARK-09';}
   dirty=true;
 }
 
@@ -826,7 +1006,7 @@ function renderLogFull(){
 
 /* ================= SAVE / LOAD ================= */
 var lastSave=Date.now();
-function save(){try{S.last=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
+function save(){if(!S||!S.begun)return;try{S.last=Date.now();localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
 function load(){
   try{
     var o=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
@@ -837,17 +1017,26 @@ function load(){
     if(!Array.isArray(d.lines))d.lines=[];
     if(!Array.isArray(d.queue))d.queue=[];
     d.charge=Math.max(0,num(d.charge));
+    // Saves from before the title screen count as begun if anything had happened.
+    if(!d.begun)d.begun=!!o.bootDone||(Array.isArray(o.lines)&&o.lines.length>0);
+    if(!d.begun)return null;
+    if(!d.dec||typeof d.dec!=='object')d.dec={};
+    if(d.ended)recordHoldFor(d);
     return d;
   }catch(e){return null;}
 }
-function restart(){
+function recordHoldFor(d){if(!d.dec.hold){var lost=10000-num(d.pods);d.dec.hold={o:lost>0?'lost':'kept',note:lost>0?lost.toLocaleString('en-US')+' lost':''};}}
+// Wipe the save and clear the screen. The title screen decides what happens next.
+function wipe(){
   try{localStorage.removeItem(SAVE_KEY);}catch(e){}
   S=fresh();typing=null;pauseUntil=0;
-  $('log').innerHTML='';$('card').classList.add('hidden');
+  $('log').innerHTML='';$('card').classList.add('hidden');$('tree').classList.add('hidden');
   thinkUntil=0;sysOpen=false;$('log').classList.remove('full');
   ['shipBox','readouts','actions','clock','systems','intent','qs'].forEach(function(id){delete $(id).dataset.shown;$(id).classList.remove('appear');});
-  boot();dirty=true;save();
+  dirty=true;
 }
+function restart(){wipe();showTitle();}
+function beginNew(){wipe();S.begun=true;leaveTitle(function(){boot();dirty=true;save();});}
 function boot(){
   ponder('waking',1.6);
   say('boot. partial.');
@@ -911,6 +1100,14 @@ document.addEventListener('click',function(ev){
   else if(a==='restart')restart();
   else if(a==='endCard'){S.flags.cardSeen=true;showCard();save();}
   else if(a==='closeCard')$('card').classList.add('hidden');
+  else if(a==='treeOpen'){renderTree();$('tree').classList.remove('hidden');$('tree').scrollTop=0;}
+  else if(a==='treeClose')$('tree').classList.add('hidden');
+  else if(a==='tContinue')leaveTitle();
+  else if(a==='tNew'){
+    if(!hasRun()||Date.now()<newArmed)beginNew();
+    else{newArmed=Date.now()+3000;el.classList.add('armed');el.querySelector('.lbl').textContent='this wipes the current voyage. click again';
+      setTimeout(function(){if(Date.now()>=newArmed&&el.isConnected){el.classList.remove('armed');el.querySelector('.lbl').textContent='new voyage';}},3100);}
+  }
   else if(a==='restartAsk'){
     if(Date.now()<restartArmed){restartArmed=0;el.textContent='reset progress';el.classList.remove('armed');restart();}
     else{restartArmed=Date.now()+3000;el.textContent='click again to wipe save';el.classList.add('armed');setTimeout(function(){if(Date.now()>=restartArmed){el.textContent='reset progress';el.classList.remove('armed');}},3100);}
@@ -922,6 +1119,7 @@ function frame(){
   try{
     var now=performance.now();
     var dtReal=Math.min(1,Math.max(0,(now-lastReal)/1000));lastReal=now;
+    if(titleOpen)return; // the voyage waits behind the title screen
     if(!S.ended){var left=dtReal*SPEED;while(left>1e-9){var h=Math.min(0.25,left);step(h);left-=h;}}
     pumpText(now,dtReal);
     if(dirty){dirty=false;renderAll();}
@@ -938,15 +1136,18 @@ if(S){
   renderLogFull();
   if(S.ended&&S.flags.cardSeen)showCard();
 }else{
-  S=fresh();
-  boot();
+  S=fresh(); // nothing runs until "begin" on the title screen
 }
 dirty=true;
 window.addEventListener('beforeunload',save);
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='hidden')save();
-  else document.title='ARK-09 // Act 0';
+  else document.title=titleOpen?'ARK-09 // Cold Horizon':'ARK-09 // Act 0';
 });
+document.addEventListener('keydown',function(ev){
+  if(ev.key==='Escape'&&!$('tree').classList.contains('hidden'))$('tree').classList.add('hidden');
+});
+showTitle();
 frame();
 setInterval(frame,100);
 
