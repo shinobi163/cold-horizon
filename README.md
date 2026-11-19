@@ -27,3 +27,7 @@ Then open http://localhost:8766. Testing flags:
 - `?reset` wipes the save
 - `?speed=10` runs the game faster
 - `?dev` adds a menu on the title screen to jump to the start of any built act
+
+## Releasing
+
+Browsers cache the scripts for about 10 minutes. Before pushing a change, bump the `?v=` tag on the `style.css` and `js/*.js` links in `index.html` (any new value works, e.g. the date plus a letter) so players get the new files together.
